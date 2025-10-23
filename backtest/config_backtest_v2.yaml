@@ -491,3 +491,14 @@ signal_processing:
   notification:
     enabled: False  # در Backtest اعلان نیاز نیست
     min_score_to_notify: 69.0
+# ================= کش امتیازات تایم‌فریم (برای Backtest) =================
+# توجه: در Backtest این کش به صورت پیش‌فرض غیرفعال است
+# چون نیاز به محاسبات دقیق و تکرارپذیر داریم
+timeframe_score_cache:
+  enabled: False  # در backtest باید False باشد برای دقت
+  max_cache_age_hours: 24
+
+# توضیحات:
+# - در Live Trading: enabled = True (برای سرعت و کارایی)
+# - در Backtest: enabled = False (برای دقت و تکرارپذیری)
+# - اگر enabled = True باشد، ممکن است نتایج backtest کمی متفاوت باشند

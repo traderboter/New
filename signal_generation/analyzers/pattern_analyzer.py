@@ -33,6 +33,7 @@ import talib
 
 from signal_generation.analyzers.base_analyzer import BaseAnalyzer
 from signal_generation.context import AnalysisContext
+from signal_generation.pattern_score_utils import get_pattern_score
 
 logger = logging.getLogger(__name__)
 
@@ -77,24 +78,32 @@ class PatternAnalyzer(BaseAnalyzer):
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize PatternAnalyzer.
-        
+
         Args:
             config: Configuration dictionary
         """
         super().__init__(config)
-        
+
         # Get pattern-specific configuration
         pattern_config = config.get('pattern', {})
-        
+
         # Minimum pattern strength to consider
         self.min_pattern_strength = pattern_config.get('min_strength', 2)
-        
+
         # Chart pattern detection lookback
         self.chart_lookback = pattern_config.get('chart_lookback', 50)
-        
+
         # Enable/disable
         self.enabled = config.get('analyzers', {}).get('pattern', {}).get('enabled', True)
-        
+
+        # امتیازدهی خاص هر تایم‌فریم (اختیاری)
+        # اگر در config موجود باشد، از آن استفاده می‌شود
+        # در غیر این صورت از امتیازهای base_strength استفاده خواهد شد
+        self.pattern_scores_by_timeframe = config.get('signal_generation_v2', {}) \
+            .get('analyzers', {}) \
+            .get('pattern_analyzer', {}) \
+            .get('pattern_scores_by_timeframe', {})
+
         logger.info("PatternAnalyzer initialized successfully")
     
     def analyze(self, context: AnalysisContext) -> None:
@@ -234,13 +243,23 @@ class PatternAnalyzer(BaseAnalyzer):
                         direction = 'bullish' if result[-1] > 0 else 'bearish'
                     else:
                         direction = pattern_info['type']
-                    
+
+                    # محاسبه base_strength با توجه به تایم‌فریم
+                    # اگر pattern_scores_by_timeframe تنظیم شده باشد، از آن استفاده می‌شود
+                    # در غیر این صورت از pattern_info['strength'] استفاده می‌شود
+                    base_strength = get_pattern_score(
+                        self.pattern_scores_by_timeframe,
+                        pattern_info['name'].lower().replace(' ', '_'),  # تبدیل "Morning Star" به "morning_star"
+                        context.timeframe,
+                        pattern_info['strength']  # مقدار پیش‌فرض
+                    )
+
                     patterns.append({
                         'name': pattern_info['name'],
                         'type': 'candlestick',
                         'direction': direction,
-                        'base_strength': pattern_info['strength'],
-                        'adjusted_strength': pattern_info['strength'],  # Will be adjusted later
+                        'base_strength': base_strength,
+                        'adjusted_strength': base_strength,  # Will be adjusted later
                         'location': 'current',
                         'candles_ago': 0
                     })

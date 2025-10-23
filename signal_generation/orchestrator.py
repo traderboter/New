@@ -23,6 +23,7 @@ from signal_generation.context import AnalysisContext
 from signal_generation.signal_scorer import SignalScorer
 from signal_generation.signal_validator import SignalValidator
 from signal_generation.signal_info import SignalInfo
+from signal_generation.timeframe_score_cache import TimeframeScoreCache
 
 
 from signal_generation.systems import (
@@ -173,7 +174,9 @@ class SignalOrchestrator:
             systems_config.get('circuit_breaker', {})
         )
 
-
+        # ✨ Timeframe Score Cache - برای جلوگیری از محاسبات تکراری
+        self.tf_score_cache = TimeframeScoreCache(config)
+        logger.info(f"TimeframeScoreCache initialized (enabled={self.tf_score_cache.enabled})")
 
         # State
         self.is_running = False
@@ -272,6 +275,28 @@ class SignalOrchestrator:
                 return None
 
             logger.info(f"  ✓ Fetched {len(df)} candles")
+
+            # === STEP 1.5: Check Cache ===
+            # آیا باید دوباره محاسبه کنیم یا از کش استفاده کنیم؟
+            should_recalc, reason = self.tf_score_cache.should_recalculate(
+                symbol, timeframe, df
+            )
+
+            if not should_recalc:
+                # کش معتبر است - استفاده از امتیاز کش شده
+                logger.info(
+                    f"  💾 Using CACHED score for {symbol} {timeframe} "
+                    f"(reason: {reason}) - Skipping recalculation"
+                )
+                cached_signal = self.tf_score_cache.get_cached_score(symbol, timeframe)
+                if cached_signal:
+                    return cached_signal
+
+            # کندل جدید آمده یا کش invalid است - محاسبه مجدد
+            logger.info(
+                f"  🔄 RECALCULATING score for {symbol} {timeframe} "
+                f"(reason: {reason})"
+            )
 
             # === STEP 2: Create Analysis Context ===
             logger.info(f"[2/7] Creating context for {symbol}")
@@ -406,6 +431,10 @@ class SignalOrchestrator:
 
             # Register signal
             self.signal_validator.register_signal(signal)
+
+            # ✨ Update Cache - ذخیره امتیاز برای استفاده‌های بعدی
+            self.tf_score_cache.update_cache(symbol, timeframe, signal, df)
+            logger.debug(f"💾 Cached signal for {symbol} {timeframe}")
 
             # Send to TradeManager
             if self.send_to_trade_manager and self.trade_manager_callback:
@@ -697,12 +726,39 @@ class SignalOrchestrator:
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get orchestrator statistics."""
-        return self.stats.to_dict()
+        stats = self.stats.to_dict()
+
+        # اضافه کردن آمار کش
+        if self.tf_score_cache.enabled:
+            cache_stats = self.tf_score_cache.get_statistics()
+            efficiency = self.tf_score_cache.estimate_efficiency_gain()
+            stats['cache'] = {
+                'statistics': cache_stats,
+                'efficiency': efficiency
+            }
+
+        return stats
 
     def reset_statistics(self) -> None:
         """Reset statistics."""
         self.stats = OrchestratorStats()
         logger.info("Statistics reset")
+
+    def log_cache_statistics(self) -> None:
+        """نمایش آمار کش در لاگ"""
+        if self.tf_score_cache.enabled:
+            self.tf_score_cache.log_statistics()
+
+            # نمایش تخمین بهبود کارایی
+            efficiency = self.tf_score_cache.estimate_efficiency_gain()
+            logger.info("=" * 60)
+            logger.info("📈 Efficiency Gains from Caching:")
+            logger.info(f"Total requests: {efficiency['total_requests']}")
+            logger.info(f"Requests saved: {efficiency['cache_hits']} ({efficiency['requests_saved_percentage']:.1f}%)")
+            logger.info(f"Estimated time saved: {efficiency['estimated_time_saved_minutes']:.1f} minutes")
+            logger.info("=" * 60)
+        else:
+            logger.info("Timeframe score cache is disabled")
 
     def register_trade_result(self, trade_result: TradeResult) -> None:
         """

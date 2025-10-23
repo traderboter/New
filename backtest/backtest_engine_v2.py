@@ -237,6 +237,12 @@ class BacktestEngineV2:
                 self.signal_orchestrator.correlation_manager.enabled = False
                 logger.info("✅ Correlation manager disabled for backtest")
 
+            # غیرفعال کردن timeframe score cache برای backtest
+            # در backtest نیاز به محاسبات دقیق و تکرارپذیر داریم، نه سرعت
+            if hasattr(self.signal_orchestrator, 'tf_score_cache'):
+                self.signal_orchestrator.tf_score_cache.enabled = False
+                logger.info("✅ Timeframe score cache disabled for backtest (ensures accurate calculations)")
+
             logger.info("✅ SignalOrchestrator initialized successfully")
 
         except Exception as e:

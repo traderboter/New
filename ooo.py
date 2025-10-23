@@ -35,6 +35,9 @@ from scipy import signal as sig_processing
 from scipy import stats
 import scipy
 
+# ابزارهای امتیازدهی الگوها
+from signal_generation.pattern_score_utils import get_pattern_score
+
 # کتابخانه‌های بهینه‌سازی
 try:
     import bottleneck as bn
@@ -3065,7 +3068,7 @@ class SignalGenerator:
             'phase': phase
         }
 
-    async def detect_candlestick_patterns(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
+    async def detect_candlestick_patterns(self, df: pd.DataFrame, timeframe: str = '1h') -> List[Dict[str, Any]]:
         """تشخیص الگوهای کندل استیک - نسخه بهینه با اجرای موازی"""
         patterns_found = []
 
@@ -3073,8 +3076,8 @@ class SignalGenerator:
             return patterns_found
 
         try:
-            # بررسی کش
-            cache_key = f"candle_patterns_{id(df)}_{len(df)}"
+            # بررسی کش (شامل timeframe)
+            cache_key = f"candle_patterns_{id(df)}_{len(df)}_{timeframe}"
             if cache_key in self._pattern_cache:
                 return self._pattern_cache[cache_key]
 
@@ -3143,8 +3146,13 @@ class SignalGenerator:
                         if pattern_strength < 0.1:
                             pattern_strength = 0.7
 
-                        # امتیاز از پیکربندی یا مقدار پیش‌فرض
-                        config_score = self.pattern_scores.get(pattern_name, base_score)
+                        # امتیاز از پیکربندی با پشتیبانی از امتیازدهی خاص هر تایم‌فریم
+                        config_score = get_pattern_score(
+                            self.pattern_scores,
+                            pattern_name,
+                            timeframe,
+                            base_score
+                        )
                         pattern_score = config_score * pattern_strength
 
                         patterns_found.append({
@@ -6521,7 +6529,7 @@ class SignalGenerator:
             results['signals'].extend(bb_analysis['signals'])
 
             # تشخیص الگوهای کندل
-            candle_patterns = await self.detect_candlestick_patterns(df)
+            candle_patterns = await self.detect_candlestick_patterns(df, timeframe)
             results['details']['candle_patterns'] = candle_patterns
 
             # تحلیل حجم پیشرفته

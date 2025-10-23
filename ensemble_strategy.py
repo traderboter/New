@@ -14,6 +14,7 @@ from enum import Enum, auto
 from typing import Dict, Any, Optional, List, Tuple, Union, TypedDict, Callable, Protocol, Set
 from dataclasses import dataclass
 from signal_generator import SignalGenerator, SignalInfo, SignalScore
+from signal_generation.pattern_score_utils import update_pattern_scores_in_place
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -477,7 +478,7 @@ class StrategyEnsemble:
 
         for pattern in trend_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.5  # افزایش وزن الگوهای روند
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.5)  # افزایش وزن الگوهای روند
 
         # کاهش وزن الگوهای بازگشتی
         reversal_patterns = [
@@ -488,7 +489,7 @@ class StrategyEnsemble:
 
         for pattern in reversal_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 0.7  # کاهش وزن الگوهای بازگشتی
+                update_pattern_scores_in_place(pattern_scores, pattern, 0.7)  # کاهش وزن الگوهای بازگشتی
 
         # تنظیمات تشخیص روند
         signal_config['trend_alignment_weight'] = 1.5  # افزایش اهمیت همراستایی روند
@@ -526,7 +527,7 @@ class StrategyEnsemble:
 
         for pattern in reversal_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.5  # افزایش وزن الگوهای بازگشتی
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.5)  # افزایش وزن الگوهای بازگشتی
 
         # تقویت الگوهای واگرایی
         divergence_patterns = [
@@ -538,7 +539,7 @@ class StrategyEnsemble:
 
         for pattern in divergence_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.7  # افزایش وزن واگرایی‌ها
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.7)  # افزایش وزن واگرایی‌ها
 
         # تنظیمات حساسیت واگرایی
         signal_config['divergence_sensitivity'] = 0.5  # افزایش حساسیت به واگرایی‌ها
@@ -587,7 +588,7 @@ class StrategyEnsemble:
 
         for pattern in breakout_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.8  # افزایش وزن الگوهای شکست
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.8)  # افزایش وزن الگوهای شکست
 
         # تقویت تأیید حجم
         signal_config['volume_multiplier_threshold'] = 1.1  # کاهش آستانه برای تشخیص افزایش حجم
@@ -630,7 +631,7 @@ class StrategyEnsemble:
 
         for pattern in momentum_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.6  # افزایش وزن الگوهای مومنتوم
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.6)  # افزایش وزن الگوهای مومنتوم
 
         # تغییر تنظیمات تشخیص مومنتوم
         signal_config['momentum_sensitivity'] = 0.8
@@ -671,7 +672,7 @@ class StrategyEnsemble:
 
         for pattern in range_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.7
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.7)
 
         # کاهش وزن الگوهای شکست و روند
         trend_patterns = [
@@ -681,7 +682,7 @@ class StrategyEnsemble:
 
         for pattern in trend_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 0.6
+                update_pattern_scores_in_place(pattern_scores, pattern, 0.6)
 
         # تنظیمات محدوده قیمت
         signal_config['range_detection_period'] = 30
@@ -718,7 +719,7 @@ class StrategyEnsemble:
 
         for pattern in volatility_patterns:
             if pattern in pattern_scores:
-                pattern_scores[pattern] *= 1.8
+                update_pattern_scores_in_place(pattern_scores, pattern, 1.8)
 
         # تنظیمات نوسان
         signal_config['atr_period'] = 14

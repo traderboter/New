@@ -8,6 +8,7 @@ Main Components:
 - SignalScorer: Signal scoring system
 - SignalValidator: Signal validation system
 - SignalInfo: Signal data model
+- TimeframeScoreCache: Intelligent caching system for timeframe scores
 
 Advanced Systems:
 - MarketRegimeDetector: Market condition detection
@@ -29,6 +30,7 @@ from signal_generation.signal_info import SignalInfo
 from signal_generation.signal_score import SignalScore
 from signal_generation.signal_scorer import SignalScorer
 from signal_generation.signal_validator import SignalValidator
+from signal_generation.timeframe_score_cache import TimeframeScoreCache
 
 # Shared Components
 from signal_generation.shared.indicator_calculator import IndicatorCalculator
@@ -70,6 +72,7 @@ __all__ = [
     'SignalScore',
     'SignalScorer',
     'SignalValidator',
+    'TimeframeScoreCache',
 
     # Shared Components
     'IndicatorCalculator',

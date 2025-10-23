@@ -66,7 +66,11 @@ class SignalScore:
     signal_strength: str = 'weak'        # 'weak', 'medium', 'strong'
     contributing_analyzers: List[str] = field(default_factory=list)
     aligned_analyzers: int = 0
-    
+
+    # ✨ جزئیات الگوهای تشخیص داده شده
+    detected_patterns: List[Dict[str, Any]] = field(default_factory=list)
+    pattern_contributions: Dict[str, float] = field(default_factory=dict)  # هر الگو چقدر به امتیاز کمک کرد
+
     # Scoring breakdown for debugging
     breakdown: Dict[str, Any] = field(default_factory=dict)
     
@@ -203,9 +207,13 @@ class SignalScore:
             'meta': {
                 'contributing_analyzers': self.contributing_analyzers,
                 'aligned_analyzers': self.aligned_analyzers
+            },
+            'patterns': {
+                'detected': self.detected_patterns,
+                'contributions': self.pattern_contributions
             }
         }
-        
+
         return self.breakdown
     
     def to_dict(self) -> Dict[str, Any]:
@@ -229,3 +237,46 @@ class SignalScore:
     def __repr__(self) -> str:
         """Detailed representation."""
         return self.__str__()
+
+    def get_pattern_summary(self) -> str:
+        """
+        دریافت خلاصه الگوهای تشخیص داده شده برای نمایش در لاگ.
+
+        Returns:
+            رشته‌ای حاوی خلاصه الگوها و تایم‌فریم‌های آن‌ها
+        """
+        if not self.detected_patterns:
+            return "هیچ الگویی تشخیص داده نشد"
+
+        summary_lines = []
+        for pattern in self.detected_patterns:
+            name = pattern.get('name', 'Unknown')
+            timeframe = pattern.get('timeframe', 'N/A')
+            adjusted_strength = pattern.get('adjusted_strength', 0)
+            direction = pattern.get('direction', 'neutral')
+            pattern_type = pattern.get('type', 'unknown')
+
+            # افزودن ایموجی بر اساس نوع الگو
+            if pattern_type == 'candlestick':
+                icon = '🕯️'
+            elif pattern_type == 'chart':
+                icon = '📊'
+            else:
+                icon = '📈'
+
+            # افزودن ایموجی بر اساس جهت
+            if direction == 'bullish':
+                dir_icon = '🟢'
+            elif direction == 'bearish':
+                dir_icon = '🔴'
+            else:
+                dir_icon = '⚪'
+
+            contribution = self.pattern_contributions.get(name, 0)
+
+            summary_lines.append(
+                f"{icon} {name} [{timeframe}] {dir_icon} "
+                f"(قدرت: {adjusted_strength:.2f}, سهم: {contribution:.2f})"
+            )
+
+        return "\n".join(summary_lines)

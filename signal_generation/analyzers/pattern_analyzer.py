@@ -138,10 +138,10 @@ class PatternAnalyzer(BaseAnalyzer):
                 return
             
             # 4. Detect candlestick patterns
-            candlestick_patterns = self._detect_candlestick_patterns(df)
-            
+            candlestick_patterns = self._detect_candlestick_patterns(context)
+
             # 5. Detect chart patterns
-            chart_patterns = self._detect_chart_patterns(df)
+            chart_patterns = self._detect_chart_patterns(context)
             
             # 6. Context-aware scoring (read trend/momentum/volume)
             trend_context = context.get_result('trend')
@@ -211,18 +211,19 @@ class PatternAnalyzer(BaseAnalyzer):
                 'error': str(e)
             })
     
-    def _detect_candlestick_patterns(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
+    def _detect_candlestick_patterns(self, context: AnalysisContext) -> List[Dict[str, Any]]:
         """
         Detect candlestick patterns using TALib.
-        
+
         Args:
-            df: DataFrame with OHLC data
-            
+            context: AnalysisContext with OHLC data and timeframe
+
         Returns:
-            List of detected patterns
+            List of detected patterns with timeframe information
         """
         patterns = []
-        
+
+        df = context.df
         open_prices = df['open'].values
         high_prices = df['high'].values
         low_prices = df['low'].values
@@ -261,7 +262,8 @@ class PatternAnalyzer(BaseAnalyzer):
                         'base_strength': base_strength,
                         'adjusted_strength': base_strength,  # Will be adjusted later
                         'location': 'current',
-                        'candles_ago': 0
+                        'candles_ago': 0,
+                        'timeframe': context.timeframe  # ✨ اضافه کردن تایم‌فریم
                     })
                     
             except Exception as e:
@@ -270,44 +272,49 @@ class PatternAnalyzer(BaseAnalyzer):
         
         return patterns
     
-    def _detect_chart_patterns(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
+    def _detect_chart_patterns(self, context: AnalysisContext) -> List[Dict[str, Any]]:
         """
         Detect chart patterns (custom algorithms).
-        
+
         Args:
-            df: DataFrame with OHLC data
-            
+            context: AnalysisContext with OHLC data and timeframe
+
         Returns:
-            List of detected chart patterns
+            List of detected chart patterns with timeframe information
         """
         patterns = []
-        
+
+        df = context.df
         lookback = min(self.chart_lookback, len(df))
         if lookback < 20:
             return patterns
-        
+
         recent_df = df.tail(lookback)
         
         # 1. Double Top/Bottom
         double_pattern = self._detect_double_top_bottom(recent_df)
         if double_pattern:
+            double_pattern['timeframe'] = context.timeframe  # ✨ اضافه کردن تایم‌فریم
             patterns.append(double_pattern)
-        
+
         # 2. Head and Shoulders
         hs_pattern = self._detect_head_shoulders(recent_df)
         if hs_pattern:
+            hs_pattern['timeframe'] = context.timeframe  # ✨ اضافه کردن تایم‌فریم
             patterns.append(hs_pattern)
-        
+
         # 3. Triangle patterns
         triangle = self._detect_triangle(recent_df)
         if triangle:
+            triangle['timeframe'] = context.timeframe  # ✨ اضافه کردن تایم‌فریم
             patterns.append(triangle)
-        
+
         # 4. Wedge patterns
         wedge = self._detect_wedge(recent_df)
         if wedge:
+            wedge['timeframe'] = context.timeframe  # ✨ اضافه کردن تایم‌فریم
             patterns.append(wedge)
-        
+
         return patterns
     
     def _detect_double_top_bottom(self, df: pd.DataFrame) -> Optional[Dict[str, Any]]:

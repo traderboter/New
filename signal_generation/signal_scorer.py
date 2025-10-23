@@ -198,7 +198,7 @@ class SignalScorer:
         # 4. Pattern score
         pattern_result = context.get_result('patterns')
         if pattern_result:
-            score.pattern_score = self._score_patterns(pattern_result, direction)
+            score.pattern_score = self._score_patterns(pattern_result, direction, score)  # ✨ ارسال score برای ذخیره جزئیات
             if score.pattern_score > 0:
                 score.contributing_analyzers.append('patterns')
         
@@ -295,25 +295,48 @@ class SignalScorer:
         
         return score
     
-    def _score_patterns(self, pattern_result: Dict, direction: str) -> float:
-        """Score pattern analyzer result."""
+    def _score_patterns(self, pattern_result: Dict, direction: str, score: SignalScore) -> float:
+        """
+        Score pattern analyzer result and populate pattern details.
+
+        Args:
+            pattern_result: Pattern analysis results
+            direction: Signal direction ('LONG' or 'SHORT')
+            score: SignalScore object to populate with pattern details
+
+        Returns:
+            Pattern score (0-100)
+        """
         patterns = pattern_result.get('candlestick_patterns', []) + pattern_result.get('chart_patterns', [])
-        
+
         if not patterns:
             return 0
-        
+
         total_score = 0
-        
+
+        # ✨ ذخیره تمام الگوهای تشخیص داده شده
+        score.detected_patterns = patterns.copy()
+
         for pattern in patterns:
             pattern_direction = pattern.get('direction', 'neutral')
             adjusted_strength = pattern.get('adjusted_strength', 0)
-            
+            pattern_name = pattern.get('name', 'Unknown')
+
+            # محاسبه سهم هر الگو
+            contribution = 0
+
             # Check alignment
             if direction == 'LONG' and pattern_direction == 'bullish':
-                total_score += adjusted_strength * 20
+                contribution = adjusted_strength * 20
+                total_score += contribution
             elif direction == 'SHORT' and pattern_direction == 'bearish':
-                total_score += adjusted_strength * 20
-        
+                contribution = adjusted_strength * 20
+                total_score += contribution
+
+            # ✨ ذخیره سهم هر الگو در امتیاز کل
+            if contribution > 0:
+                score.pattern_contributions[pattern_name] = contribution
+
         return min(total_score, 100)
     
     def _score_sr(self, sr_result: Dict, direction: str, current_price: float) -> float:

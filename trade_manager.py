@@ -821,6 +821,18 @@ class TradeManager:
             # ارسال اعلان به صورت آسنکرون
             await self._send_notification(notif_msg)
 
+            # ✨ لاگ جزئیات الگوهای تشخیص داده شده که منجر به این معامله شدند
+            if hasattr(signal, 'score') and hasattr(signal.score, 'detected_patterns'):
+                if signal.score.detected_patterns:
+                    logger.info(
+                        f"[TRADE_MGR] 📊 جزئیات الگوهای تشخیص داده شده برای معامله {trade_id}:\n"
+                        f"{signal.score.get_pattern_summary()}"
+                    )
+                    logger.info(
+                        f"[TRADE_MGR] 💯 سهم هر الگو در امتیاز کل: "
+                        f"{signal.score.pattern_contributions}"
+                    )
+
             logger.info(
                 f"[TRADE_MGR] معامله جدید {trade_id} با استراتژی '{trade.strategy_name}' و تایم‌فریم '{trade.timeframe}' "
                 f"برای {trade.symbol} ({trade.direction}) با موفقیت باز شد. "

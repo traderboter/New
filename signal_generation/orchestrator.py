@@ -377,6 +377,13 @@ class SignalOrchestrator:
                 f"({score.signal_strength}, conf={score.confidence:.2f})"
             )
 
+            # ✨ لاگ جزئیات الگوهای تشخیص داده شده
+            if score.detected_patterns:
+                logger.info(
+                    f"  📊 الگوهای تشخیص داده شده برای {symbol} {direction}:\n"
+                    f"{score.get_pattern_summary()}"
+                )
+
             # Build SignalInfo
             signal = self._build_signal_info(context, direction, score)
 

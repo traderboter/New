@@ -22,7 +22,7 @@ sys.path.insert(0, project_root)
 from signal_generation.analyzers.patterns.candlestick.shooting_star import ShootingStarPattern
 
 
-def load_data(data_dir: str, timeframe: str = '1h') -> pd.DataFrame:
+def load_data(data_dir: str, timeframe: str = '1hour') -> pd.DataFrame:
     """Load historical data"""
     filepath = os.path.join(data_dir, f'{timeframe}.csv')
 
@@ -243,7 +243,7 @@ def main():
 
     # بارگذاری داده
     print(f"📂 Loading data from: {data_dir}")
-    df = load_data(data_dir, '1h')
+    df = load_data(data_dir, '1hour')
 
     if df is None:
         return

@@ -80,8 +80,10 @@ class HammerPattern(BasePattern):
             body_size = abs(last_candle['close'] - last_candle['open'])
             lower_shadow = min(last_candle['open'], last_candle['close']) - last_candle['low']
             upper_shadow = last_candle['high'] - max(last_candle['open'], last_candle['close'])
+            full_range = last_candle['high'] - last_candle['low']
 
-            shadow_ratio = lower_shadow / body_size if body_size > 0 else 0
+            # Use full_range instead of body_size to avoid zero/very small body issues
+            shadow_ratio = lower_shadow / full_range if full_range > 0 else 0
 
             return {
                 'location': 'current',
@@ -91,6 +93,7 @@ class HammerPattern(BasePattern):
                     'body_size': float(body_size),
                     'lower_shadow': float(lower_shadow),
                     'upper_shadow': float(upper_shadow),
+                    'full_range': float(full_range),
                     'shadow_ratio': float(shadow_ratio)
                 }
             }

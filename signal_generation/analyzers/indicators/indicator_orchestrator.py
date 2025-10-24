@@ -69,12 +69,41 @@ class IndicatorOrchestrator:
         )
 
     def _load_indicators(self):
-        """Load all available indicator calculators."""
-        # For now, we'll use a manual registry
-        # Later, we can add dynamic loading
+        """Load all available indicator calculators automatically."""
+        try:
+            # Import all indicator classes
+            from signal_generation.analyzers.indicators.ema import EMAIndicator
+            from signal_generation.analyzers.indicators.sma import SMAIndicator
+            from signal_generation.analyzers.indicators.rsi import RSIIndicator
+            from signal_generation.analyzers.indicators.macd import MACDIndicator
+            from signal_generation.analyzers.indicators.stochastic import StochasticIndicator
+            from signal_generation.analyzers.indicators.atr import ATRIndicator
+            from signal_generation.analyzers.indicators.bollinger_bands import BollingerBandsIndicator
+            from signal_generation.analyzers.indicators.obv import OBVIndicator
 
-        # This will be populated as we implement each indicator
-        logger.debug("Indicator loading completed (registry empty - to be populated)")
+            # Register all indicators
+            indicators = [
+                # Trend indicators
+                EMAIndicator,
+                SMAIndicator,
+                # Momentum indicators
+                RSIIndicator,
+                MACDIndicator,
+                StochasticIndicator,
+                # Volatility indicators
+                ATRIndicator,
+                BollingerBandsIndicator,
+                # Volume indicators
+                OBVIndicator
+            ]
+
+            for indicator_class in indicators:
+                self.register_indicator(indicator_class)
+
+            logger.info(f"Loaded {len(self.all_indicators)} indicators successfully")
+
+        except Exception as e:
+            logger.error(f"Error loading indicators: {e}", exc_info=True)
 
     def register_indicator(self, indicator_class: Type[BaseIndicator]):
         """

@@ -45,7 +45,7 @@ class RSIIndicator(BaseIndicator):
 
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate RSI.
+        Calculate RSI using Wilder's smoothing method (EMA).
 
         Args:
             df: DataFrame with OHLCV data
@@ -62,14 +62,22 @@ class RSIIndicator(BaseIndicator):
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
 
-        # Calculate average gain and loss
-        avg_gain = gain.rolling(window=self.period).mean()
-        avg_loss = loss.rolling(window=self.period).mean()
+        # Calculate average gain and loss using EMA (Wilder's method)
+        # Wilder's smoothing is equivalent to EMA with alpha = 1/period
+        avg_gain = gain.ewm(span=self.period, adjust=False).mean()
+        avg_loss = loss.ewm(span=self.period, adjust=False).mean()
 
-        # Calculate RS (Relative Strength)
-        rs = avg_gain / avg_loss
+        # Calculate RS (Relative Strength) with safe division
+        rs = self._safe_divide(avg_gain, avg_loss, 0)
 
         # Calculate RSI
         result_df['rsi'] = 100 - (100 / (1 + rs))
+
+        # Ensure RSI is within valid range [0, 100]
+        # Set invalid values to NaN
+        result_df['rsi'] = result_df['rsi'].where(
+            result_df['rsi'].between(0, 100, inclusive='both'),
+            np.nan
+        )
 
         return result_df

@@ -65,8 +65,19 @@ class StochasticIndicator(BaseIndicator):
         low_min = result_df['low'].rolling(window=self.k_period).min()
         high_max = result_df['high'].rolling(window=self.k_period).max()
 
-        # Calculate raw %K
-        raw_k = 100 * (result_df['close'] - low_min) / (high_max - low_min)
+        # Calculate the range (high - low)
+        range_hl = high_max - low_min
+
+        # Calculate raw %K with safe division
+        # When range is 0 (flat price), use 50 as neutral value
+        raw_k = 100 * self._safe_divide(
+            result_df['close'] - low_min,
+            range_hl,
+            0.5  # 0.5 * 100 = 50 (neutral value)
+        )
+
+        # Ensure raw_k is within valid range [0, 100]
+        raw_k = raw_k.clip(0, 100)
 
         # Smooth %K
         result_df['stoch_k'] = raw_k.rolling(window=self.smooth_k).mean()

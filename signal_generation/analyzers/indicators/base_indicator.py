@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, Union, List
 import pandas as pd
 import numpy as np
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,7 @@ class BaseIndicator(ABC):
             # Check cache
             if self._cache_enabled:
                 df_hash = self._get_dataframe_hash(df)
-                if df_hash == self._last_hash and self._last_result is not None:
+                if df_hash is not None and df_hash == self._last_hash and self._last_result is not None:
                     logger.debug(f"{self.name}: Returning cached result")
                     return self._last_result.copy()
 
@@ -263,7 +264,21 @@ class BaseIndicator(ABC):
         """
         return 1
 
-    def _get_dataframe_hash(self, df: pd.DataFrame) -> int:
+    def _safe_divide(self, numerator, denominator, default=0):
+        """
+        Safe division with protection from division by zero.
+
+        Args:
+            numerator: Numerator (can be scalar or array)
+            denominator: Denominator (can be scalar or array)
+            default: Default value when denominator is zero (default: 0)
+
+        Returns:
+            Result of division or default value where denominator is zero
+        """
+        return np.where(denominator != 0, numerator / denominator, default)
+
+    def _get_dataframe_hash(self, df: pd.DataFrame) -> Optional[str]:
         """
         Get hash of DataFrame for caching.
 
@@ -271,15 +286,16 @@ class BaseIndicator(ABC):
             df: DataFrame to hash
 
         Returns:
-            Hash value
+            Hash value (SHA256 hex digest) or None if error
         """
         try:
             # Hash based on required columns only
             data_to_hash = df[self.required_columns].values.tobytes()
-            return hash(data_to_hash)
+            # Use SHA256 for reliable hashing, truncate to 16 chars for efficiency
+            return hashlib.sha256(data_to_hash).hexdigest()[:16]
         except Exception as e:
             logger.debug(f"{self.name}: Error hashing DataFrame: {e}")
-            return 0
+            return None
 
     def clear_cache(self):
         """Clear cached results."""

@@ -267,8 +267,8 @@ class PatternTester:
             print(f"     Strength: {detection['base_strength']}/3")
             print(f"     Confidence: {detection.get('confidence', 0):.2f}")
 
-            # نمایش quality metrics برای Doji و Hammer
-            if 'metadata' in detection and self.pattern_name in ['doji', 'hammer']:
+            # نمایش quality metrics برای Doji، Hammer و Shooting Star
+            if 'metadata' in detection and self.pattern_name in ['doji', 'hammer', 'shooting_star']:
                 meta = detection['metadata']
                 print(f"\n     📈 Quality Metrics:")
                 print(f"        Quality Score:    {meta.get('quality_score', 0):.2f}/100")
@@ -284,6 +284,13 @@ class PatternTester:
                     print(f"        Context Score:    {meta.get('context_score', 0):.2f}/100")
                     print(f"        Hammer Type:      {meta.get('hammer_type', 'Unknown')}")
                     print(f"        After Downtrend:  {'Yes ✓' if meta.get('is_after_downtrend', False) else 'No ✗'}")
+                elif self.pattern_name == 'shooting_star':
+                    print(f"        Upper Shadow:     {meta.get('upper_shadow_score', 0):.2f}/100")
+                    print(f"        Lower Shadow:     {meta.get('lower_shadow_score', 0):.2f}/100")
+                    print(f"        Body Position:    {meta.get('body_position_score', 0):.2f}/100")
+                    print(f"        Context Score:    {meta.get('context_score', 0):.2f}/100")
+                    print(f"        Shooting Star Type: {meta.get('shooting_star_type', 'Unknown')}")
+                    print(f"        After Uptrend:    {'Yes ✓' if meta.get('is_after_uptrend', False) else 'No ✗'}")
 
                 print(f"\n     🔍 Technical Details:")
                 if self.pattern_name == 'doji':
@@ -300,6 +307,15 @@ class PatternTester:
                         print(f"        Thresholds:         lower>={th.get('min_lower_shadow_ratio', 0):.1f}x, "
                               f"upper<={th.get('max_upper_shadow_ratio', 0):.1f}x, "
                               f"pos>={th.get('min_body_position', 0):.1%}")
+                elif self.pattern_name == 'shooting_star':
+                    print(f"        Upper Shadow Ratio: {meta.get('upper_shadow_ratio', 0):.2f}x body")
+                    print(f"        Lower Shadow Ratio: {meta.get('lower_shadow_ratio', 0):.2f}x body")
+                    print(f"        Body Position:      {meta.get('body_position', 0):.2%} from low")
+                    if 'thresholds' in meta:
+                        th = meta['thresholds']
+                        print(f"        Thresholds:         upper>={th.get('min_upper_shadow_ratio', 0):.1f}x, "
+                              f"lower<={th.get('max_lower_shadow_ratio', 0):.1f}x, "
+                              f"pos<={th.get('max_body_position', 0):.1%}")
             elif 'metadata' in detection:
                 print(f"     Metadata: {detection['metadata']}")
 
@@ -491,13 +507,13 @@ class PatternTester:
             print(f"  ✓ Pattern detected successfully across timeframes")
             print(f"  Total: {total_detections} detections in {total_candles} candles")
 
-            # Quality Statistics for Doji and Hammer
-            if self.pattern_name in ['doji', 'hammer'] and total_detections > 0:
+            # Quality Statistics for Doji, Hammer and Shooting Star
+            if self.pattern_name in ['doji', 'hammer', 'shooting_star'] and total_detections > 0:
                 self._print_quality_stats(results)
 
     def _print_quality_stats(self, results: dict):
         """
-        نمایش آمار کیفیت برای الگوهای Doji و Hammer
+        نمایش آمار کیفیت برای الگوهای Doji، Hammer و Shooting Star
 
         Args:
             results: دیکشنری نتایج
@@ -555,6 +571,8 @@ class PatternTester:
         # Pattern-specific insights
         if self.pattern_name == 'hammer':
             self._print_hammer_specific_stats(results)
+        elif self.pattern_name == 'shooting_star':
+            self._print_shooting_star_specific_stats(results)
 
         print(f"\n💡 Trading Insights:")
         if all_qualities:
@@ -573,6 +591,8 @@ class PatternTester:
 
         if self.pattern_name == 'hammer':
             print(f"  • For Hammer: Prefer 'Perfect' or 'Strong' types after confirmed downtrend")
+        elif self.pattern_name == 'shooting_star':
+            print(f"  • For Shooting Star: Prefer 'Perfect' or 'Strong' types after confirmed uptrend")
 
     def _print_hammer_specific_stats(self, results: dict):
         """نمایش آمار خاص Hammer."""
@@ -593,6 +613,26 @@ class PatternTester:
             downtrend_pct = (downtrend_count / total_count) * 100
             print(f"  After Downtrend:  {downtrend_count:>5} ({downtrend_pct:>5.1f}%)")
             print(f"  Other Context:    {total_count - downtrend_count:>5} ({100 - downtrend_pct:>5.1f}%)")
+
+    def _print_shooting_star_specific_stats(self, results: dict):
+        """نمایش آمار خاص Shooting Star."""
+        uptrend_count = 0
+        total_count = 0
+
+        for tf, result in results.items():
+            if result['status'] == 'ok' and result['detections']:
+                for detection in result['detections']:
+                    if 'metadata' in detection:
+                        meta = detection['metadata']
+                        total_count += 1
+                        if meta.get('is_after_uptrend', False):
+                            uptrend_count += 1
+
+        if total_count > 0:
+            print(f"\nContext Analysis:")
+            uptrend_pct = (uptrend_count / total_count) * 100
+            print(f"  After Uptrend:    {uptrend_count:>5} ({uptrend_pct:>5.1f}%)")
+            print(f"  Other Context:    {total_count - uptrend_count:>5} ({100 - uptrend_pct:>5.1f}%)")
 
 
 def main():

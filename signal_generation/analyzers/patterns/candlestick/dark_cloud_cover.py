@@ -76,10 +76,14 @@ class DarkCloudCoverPattern(BasePattern):
 
         prev_body = abs(prev_candle['close'] - prev_candle['open'])
         curr_body = abs(curr_candle['close'] - curr_candle['open'])
+        prev_full_range = prev_candle['high'] - prev_candle['low']
+        curr_full_range = curr_candle['high'] - curr_candle['low']
 
         # How far into previous candle's body
+        # Use safe division: minimum threshold is 30% of candle's full range
+        safe_prev_body = max(prev_body, prev_full_range * 0.3) if prev_full_range > 0 else 0.0001
         prev_midpoint = (prev_candle['open'] + prev_candle['close']) / 2
-        penetration = (prev_midpoint - curr_candle['close']) / prev_body if prev_body > 0 else 0
+        penetration = (prev_midpoint - curr_candle['close']) / safe_prev_body if safe_prev_body > 0 else 0
 
         return {
             'location': 'current',
@@ -88,6 +92,8 @@ class DarkCloudCoverPattern(BasePattern):
             'metadata': {
                 'prev_body': float(prev_body),
                 'curr_body': float(curr_body),
+                'prev_full_range': float(prev_full_range),
+                'curr_full_range': float(curr_full_range),
                 'penetration_ratio': float(penetration)
             }
         }

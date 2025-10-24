@@ -76,12 +76,16 @@ class ThreeBlackCrowsPattern(BasePattern):
         # Get last three candles
         candles = df.iloc[-3:].copy()
 
-        # Calculate body sizes
+        # Calculate body sizes and full ranges
         bodies = [abs(candles.iloc[i]['close'] - candles.iloc[i]['open']) for i in range(3)]
+        full_ranges = [candles.iloc[i]['high'] - candles.iloc[i]['low'] for i in range(3)]
         avg_body = sum(bodies) / 3
+        avg_full_range = sum(full_ranges) / 3
 
         # Calculate consistency (similar body sizes)
-        body_consistency = 1.0 - (max(bodies) - min(bodies)) / max(bodies) if max(bodies) > 0 else 0
+        # Use safe division: ensure max_body is not zero
+        max_body = max(bodies) if max(bodies) > 0 else 0.0001
+        body_consistency = 1.0 - (max_body - min(bodies)) / max_body if max_body > 0 else 0
 
         return {
             'location': 'current',
@@ -89,7 +93,9 @@ class ThreeBlackCrowsPattern(BasePattern):
             'confidence': min(0.80 + (body_consistency / 5), 0.95),
             'metadata': {
                 'body_sizes': [float(b) for b in bodies],
+                'full_ranges': [float(r) for r in full_ranges],
                 'avg_body': float(avg_body),
+                'avg_full_range': float(avg_full_range),
                 'body_consistency': float(body_consistency)
             }
         }

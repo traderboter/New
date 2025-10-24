@@ -81,16 +81,21 @@ class MorningStarPattern(BasePattern):
             star_candle = df.iloc[-2]
             last_candle = df.iloc[-1]
 
-            # Calculate body sizes
+            # Calculate body sizes and full ranges
             first_body = abs(first_candle['close'] - first_candle['open'])
             star_body = abs(star_candle['close'] - star_candle['open'])
             last_body = abs(last_candle['close'] - last_candle['open'])
+            first_full_range = first_candle['high'] - first_candle['low']
+            star_full_range = star_candle['high'] - star_candle['low']
+            last_full_range = last_candle['high'] - last_candle['low']
 
             # Star should be small (lower star_ratio = better)
-            star_ratio = star_body / first_body if first_body > 0 else 0
+            # Use safe division: minimum threshold is 30% of candle's full range
+            safe_first_body = max(first_body, first_full_range * 0.3) if first_full_range > 0 else 0.0001
+            star_ratio = star_body / safe_first_body if safe_first_body > 0 else 0
 
             # Last candle should be strong (higher strength_ratio = better)
-            strength_ratio = last_body / first_body if first_body > 0 else 1
+            strength_ratio = last_body / safe_first_body if safe_first_body > 0 else 1
 
             # Calculate confidence: higher strength + smaller star = higher confidence
             # Subtract star_ratio to reward smaller stars
@@ -109,6 +114,9 @@ class MorningStarPattern(BasePattern):
                     'first_body': float(first_body),
                     'star_body': float(star_body),
                     'last_body': float(last_body),
+                    'first_full_range': float(first_full_range),
+                    'star_full_range': float(star_full_range),
+                    'last_full_range': float(last_full_range),
                     'star_ratio': float(star_ratio),
                     'strength_ratio': float(strength_ratio),
                     'first_candle_direction': first_direction,

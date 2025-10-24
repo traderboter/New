@@ -8,6 +8,9 @@ Pattern Testing Framework - تست تک‌تک الگوها روی داده‌ه
     python test_pattern.py --pattern doji --data-dir historical/BTC-USDT
 """
 
+TEST_PATTERN_VERSION = "1.1.0"
+TEST_PATTERN_DATE = "2025-10-24"
+
 import sys
 import os
 
@@ -185,19 +188,41 @@ class PatternTester:
         try:
             print(f"\n🔎 Scanning for {self.pattern_name} patterns...")
 
-            detections = orchestrator.detect_all_patterns(
-                df=df,
-                timeframe=timeframe,
-                context={}
-            )
+            # برای تست کامل، همه کندل‌ها را اسکن می‌کنیم
+            # نه فقط آخرین کندل!
+            target_detections = []
 
-            # فیلتر کردن فقط الگوی مورد نظر
-            target_detections = [
-                d for d in detections
-                if self.pattern_name in d['name'].lower()
-            ]
+            # حداقل window size برای pattern detection (برای اکثر الگوها)
+            min_window = 50
 
-            print(f"✓ Found {len(target_detections)} {self.pattern_name} patterns")
+            # Loop روی همه کندل‌ها (با پیشرفت هر 1000 کندل)
+            total_candles = len(df)
+            progress_step = max(1000, total_candles // 20)  # حداقل 20 گام
+
+            for i in range(min_window, total_candles):
+                # نمایش پیشرفت
+                if i % progress_step == 0:
+                    progress = (i / total_candles) * 100
+                    print(f"  Progress: {progress:.1f}% ({i}/{total_candles})", end='\r')
+
+                # Window از داده‌ها (از شروع تا کندل فعلی)
+                window_df = df.iloc[:i+1].copy()
+
+                # تشخیص الگو در این window
+                detections = orchestrator.detect_all_patterns(
+                    df=window_df,
+                    timeframe=timeframe,
+                    context={}
+                )
+
+                # اگر الگویی یافت شد، آن را ذخیره کن
+                for d in detections:
+                    if self.pattern_name in d['name'].lower():
+                        # اضافه کردن index کندل برای reference
+                        d['detected_at_index'] = i
+                        target_detections.append(d)
+
+            print(f"\n✓ Found {len(target_detections)} {self.pattern_name} patterns")
 
             # نمایش جزئیات
             if target_detections:
@@ -367,6 +392,7 @@ class PatternTester:
         """
         print(f"\n{'='*80}")
         print(f"🎯 Pattern Testing: {self.pattern_name.upper()}")
+        print(f"📦 Version: {TEST_PATTERN_VERSION} ({TEST_PATTERN_DATE})")
         print(f"{'='*80}")
         print(f"Data Directory: {self.data_dir}")
         print(f"Timeframes: {', '.join(self.timeframes)}")

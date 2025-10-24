@@ -3,7 +3,13 @@ Doji Pattern Detector
 
 Detects Doji candlestick pattern with configurable threshold.
 Doji is a reversal pattern indicating indecision.
+
+Version: 1.1.0 (2025-10-24)
+- جایگزینی TA-Lib با detector دستی
+- threshold قابل تنظیم (default: 0.10)
 """
+
+DOJI_PATTERN_VERSION = "1.1.0"
 
 import talib
 import pandas as pd
@@ -52,6 +58,8 @@ class DojiPattern(BasePattern):
             self.body_ratio_threshold = config['doji_threshold']
         else:
             self.body_ratio_threshold = 0.10
+
+        self.version = DOJI_PATTERN_VERSION
 
     def _get_pattern_name(self) -> str:
         return "Doji"
@@ -127,6 +135,7 @@ class DojiPattern(BasePattern):
                 'body_size': float(body_size),
                 'full_range': float(full_range),
                 'body_ratio': float(body_ratio),
-                'threshold': float(self.body_ratio_threshold)
+                'threshold': float(self.body_ratio_threshold),
+                'detector_version': DOJI_PATTERN_VERSION
             }
         }

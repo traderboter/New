@@ -4,7 +4,7 @@
 این اسکریپت کندل‌های مصنوعی با شرایط روشن Shooting Star می‌سازد
 و می‌بیند آیا detector آنها را تشخیص می‌دهد یا نه.
 
-Version: 1.3.0 - Updated for range-based thresholds
+Version: 1.4.0 - Added uptrend detection requirement
 """
 
 import pandas as pd
@@ -108,17 +108,19 @@ def create_shooting_star_candle():
 def test_shooting_star_detector():
     """تست detector با کندل‌های مصنوعی"""
     print("\n" + "="*80)
-    print("🧪 DEBUG TEST: Shooting Star Detector (v1.3.0)")
+    print("🧪 DEBUG TEST: Shooting Star Detector (v1.4.0)")
     print("="*80 + "\n")
 
-    # ساخت detector
-    detector = ShootingStarPattern()
+    # ساخت detector با uptrend detection غیرفعال برای تست اولیه
+    detector = ShootingStarPattern(require_uptrend=False)
 
     print(f"Detector thresholds (range-based):")
     print(f"  min_upper_shadow_pct: {detector.min_upper_shadow_pct} (>= {detector.min_upper_shadow_pct * 100}% of range)")
     print(f"  max_lower_shadow_pct: {detector.max_lower_shadow_pct} (<= {detector.max_lower_shadow_pct * 100}% of range)")
     print(f"  max_body_pct: {detector.max_body_pct} (<= {detector.max_body_pct * 100}% of range)")
     print(f"  max_body_position: {detector.max_body_position}")
+    print(f"  require_uptrend: {detector.require_uptrend} (disabled for this test)")
+    print(f"  min_uptrend_score: {detector.min_uptrend_score}")
     print(f"  version: {detector.version}\n")
 
     # ساخت کندل‌های تست
@@ -130,14 +132,16 @@ def test_shooting_star_detector():
 
     for i, candle_dict in enumerate(test_candles, 1):
         # ساخت DataFrame با کندل‌های قبلی (برای context)
-        # باید حداقل 10 کندل داشته باشیم
+        # باید حداقل 10 کندل داشته باشیم - uptrend مصنوعی
         rows = []
         for j in range(10):
+            # ایجاد یک uptrend مصنوعی (قیمت‌ها رو به بالا)
+            base_price = 40.0 + (j * 1.0)  # افزایش تدریجی قیمت
             rows.append({
-                'open': 50.0,
-                'high': 51.0,
-                'low': 49.0,
-                'close': 50.5,
+                'open': base_price,
+                'high': base_price + 1.0,
+                'low': base_price - 0.5,
+                'close': base_price + 0.5,
                 'volume': 1000,
                 'timestamp': pd.Timestamp('2024-01-01 00:00:00') + pd.Timedelta(minutes=j*5)
             })
@@ -219,5 +223,98 @@ def test_shooting_star_detector():
     print()
 
 
+def test_with_uptrend_detection():
+    """تست detector با uptrend detection فعال"""
+    print("\n" + "="*80)
+    print("🧪 UPTREND TEST: Testing with uptrend detection ENABLED")
+    print("="*80 + "\n")
+
+    # ساخت detector با uptrend detection فعال
+    detector = ShootingStarPattern(require_uptrend=True, min_uptrend_score=50.0)
+
+    print(f"Detector settings:")
+    print(f"  require_uptrend: {detector.require_uptrend} ✅ ENABLED")
+    print(f"  min_uptrend_score: {detector.min_uptrend_score}\n")
+
+    # تست 1: کندل Shooting Star در uptrend
+    print("Test #1: Shooting Star in UPTREND (should be DETECTED)")
+    rows = []
+    for j in range(10):
+        # uptrend قوی
+        base_price = 40.0 + (j * 2.0)
+        rows.append({
+            'open': base_price,
+            'high': base_price + 2.0,
+            'low': base_price - 0.5,
+            'close': base_price + 1.8,
+            'volume': 1000,
+            'timestamp': pd.Timestamp('2024-01-01 00:00:00') + pd.Timedelta(minutes=j*5)
+        })
+    # Shooting Star کندل
+    rows.append({
+        'open': 90.1,
+        'high': 100.0,
+        'low': 90.0,
+        'close': 90.5,
+        'volume': 1000,
+        'timestamp': pd.Timestamp('2024-01-01 01:00:00')
+    })
+    df_uptrend = pd.DataFrame(rows)
+
+    # محاسبه context score
+    context_score = detector._analyze_context(df_uptrend)
+    result_uptrend = detector.detect(df_uptrend)
+
+    print(f"  Context score: {context_score:.1f} (min required: {detector.min_uptrend_score})")
+    print(f"  Result: {'✅ DETECTED' if result_uptrend else '❌ NOT detected'}")
+    print()
+
+    # تست 2: کندل Shooting Star در downtrend/sideways
+    print("Test #2: Shooting Star in DOWNTREND (should be REJECTED)")
+    rows = []
+    for j in range(10):
+        # downtrend
+        base_price = 60.0 - (j * 1.0)
+        rows.append({
+            'open': base_price,
+            'high': base_price + 0.5,
+            'low': base_price - 1.5,
+            'close': base_price - 1.0,
+            'volume': 1000,
+            'timestamp': pd.Timestamp('2024-01-01 00:00:00') + pd.Timedelta(minutes=j*5)
+        })
+    # همان Shooting Star کندل
+    rows.append({
+        'open': 90.1,
+        'high': 100.0,
+        'low': 90.0,
+        'close': 90.5,
+        'volume': 1000,
+        'timestamp': pd.Timestamp('2024-01-01 01:00:00')
+    })
+    df_downtrend = pd.DataFrame(rows)
+
+    context_score = detector._analyze_context(df_downtrend)
+    result_downtrend = detector.detect(df_downtrend)
+
+    print(f"  Context score: {context_score:.1f} (min required: {detector.min_uptrend_score})")
+    print(f"  Result: {'✅ DETECTED' if result_downtrend else '❌ NOT detected'}")
+    print()
+
+    print("="*80)
+    if result_uptrend and not result_downtrend:
+        print("✅ UPTREND DETECTION WORKING CORRECTLY!")
+        print("   - Shooting Star detected in uptrend")
+        print("   - Shooting Star rejected in downtrend")
+    else:
+        print("⚠️  Unexpected results - check uptrend detection logic")
+    print("="*80)
+    print()
+
+
 if __name__ == '__main__':
+    # Test 1: کندل‌های مصنوعی بدون uptrend check
     test_shooting_star_detector()
+
+    # Test 2: تست با uptrend detection
+    test_with_uptrend_detection()

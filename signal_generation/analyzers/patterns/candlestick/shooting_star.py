@@ -4,6 +4,13 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern with configurable thresholds.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 1.4.0 (2025-10-25)
+- 🎯 FIX CRITICAL: اضافه شدن شرط uptrend برای detection
+- Shooting Star فقط در uptrend معتبر است (الگوی بازگشتی)
+- پارامترهای جدید:
+  * require_uptrend: آیا uptrend اجباری است؟ (default: True)
+  * min_uptrend_score: حداقل امتیاز uptrend (default: 50.0)
+
 Version: 1.3.0 (2025-10-24)
 - 🔧 FIX CRITICAL: تغییر منطق detection از body-based به range-based
 - قبلاً: مقایسه shadows با body size (منطق اشتباه!)
@@ -36,7 +43,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.3.0"
+SHOOTING_STAR_PATTERN_VERSION = "1.4.0"
 
 import talib
 import pandas as pd
@@ -64,6 +71,8 @@ class ShootingStarPattern(BasePattern):
     - max_lower_shadow_pct: حداکثر درصد lower shadow (default: 0.2 = 20%)
     - max_body_pct: حداکثر درصد body (default: 0.3 = 30%)
     - max_body_position: حداکثر موقعیت body (default: 0.4 = bottom 40%)
+    - require_uptrend: آیا uptrend اجباری است؟ (default: True)
+    - min_uptrend_score: حداقل امتیاز uptrend (default: 50.0 = 0-100 scale)
     """
 
     def __init__(
@@ -72,7 +81,9 @@ class ShootingStarPattern(BasePattern):
         min_upper_shadow_pct: float = None,
         max_lower_shadow_pct: float = None,
         max_body_pct: float = None,
-        max_body_position: float = None
+        max_body_position: float = None,
+        require_uptrend: bool = None,
+        min_uptrend_score: float = None
     ):
         """
         Initialize Shooting Star detector.
@@ -83,6 +94,8 @@ class ShootingStarPattern(BasePattern):
             max_lower_shadow_pct: حداکثر درصد lower shadow از range (default: 0.2 = 20%)
             max_body_pct: حداکثر درصد body از range (default: 0.3 = 30%)
             max_body_position: حداکثر موقعیت body (0.4 = bottom 40%)
+            require_uptrend: آیا uptrend برای detection اجباری است؟ (default: True)
+            min_uptrend_score: حداقل امتیاز uptrend برای detection (default: 50.0)
         """
         super().__init__(config)
 
@@ -109,6 +122,19 @@ class ShootingStarPattern(BasePattern):
             max_body_position
             if max_body_position is not None
             else config.get('shooting_star_max_body_position', 0.4) if config else 0.4
+        )
+
+        # پارامترهای uptrend (جدید در v1.4.0)
+        self.require_uptrend = (
+            require_uptrend
+            if require_uptrend is not None
+            else config.get('shooting_star_require_uptrend', True) if config else True
+        )
+
+        self.min_uptrend_score = (
+            min_uptrend_score
+            if min_uptrend_score is not None
+            else config.get('shooting_star_min_uptrend_score', 50.0) if config else 50.0
         )
 
         self.version = SHOOTING_STAR_PATTERN_VERSION
@@ -142,6 +168,7 @@ class ShootingStarPattern(BasePattern):
         2. Lower shadow <= max_lower_shadow_pct از range (مثلاً 20%)
         3. Body size <= max_body_pct از range (مثلاً 30%)
         4. Body position <= max_body_position (در پایین کندل)
+        5. (اختیاری) Uptrend detection: context score >= min_uptrend_score
         """
         if not self._validate_dataframe(df):
             return False
@@ -185,6 +212,12 @@ class ShootingStarPattern(BasePattern):
             body_position = (body_bottom - low) / full_range
             if body_position > self.max_body_position:
                 return False
+
+            # شرط 5: چک کردن uptrend (جدید در v1.4.0)
+            if self.require_uptrend:
+                context_score = self._analyze_context(df)
+                if context_score < self.min_uptrend_score:
+                    return False  # Shooting Star فقط در uptrend معتبر است
 
             return True
 
@@ -409,7 +442,9 @@ class ShootingStarPattern(BasePattern):
                         'min_upper_shadow_pct': float(self.min_upper_shadow_pct),
                         'max_lower_shadow_pct': float(self.max_lower_shadow_pct),
                         'max_body_pct': float(self.max_body_pct),
-                        'max_body_position': float(self.max_body_position)
+                        'max_body_position': float(self.max_body_position),
+                        'require_uptrend': bool(self.require_uptrend),
+                        'min_uptrend_score': float(self.min_uptrend_score)
                     },
                     'detector_version': SHOOTING_STAR_PATTERN_VERSION,
                     'price_info': {

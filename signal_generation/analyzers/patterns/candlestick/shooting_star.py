@@ -4,6 +4,12 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern with configurable thresholds.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 1.2.1 (2025-10-24)
+- رفع مشکل threshold های خیلی سخت (relaxed defaults)
+- min_upper_shadow: 2.0 → 1.5
+- max_lower_shadow: 0.1 → 0.5
+- max_body_position: 0.33 → 0.4
+
 Version: 1.2.0 (2025-10-24)
 - جایگزینی TA-Lib با detector دستی
 - threshold های قابل تنظیم
@@ -16,7 +22,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.2.0"
+SHOOTING_STAR_PATTERN_VERSION = "1.2.1"
 
 import talib
 import pandas as pd
@@ -40,9 +46,9 @@ class ShootingStarPattern(BasePattern):
     Strength: 2/3 (Medium-Strong)
 
     Configurable Thresholds:
-    - min_upper_shadow_ratio: حداقل نسبت upper shadow به body (default: 2.0)
-    - max_lower_shadow_ratio: حداکثر نسبت lower shadow به body (default: 0.1)
-    - max_body_position: حداکثر موقعیت body در range (default: 0.33 = bottom 1/3)
+    - min_upper_shadow_ratio: حداقل نسبت upper shadow به body (default: 1.5)
+    - max_lower_shadow_ratio: حداکثر نسبت lower shadow به body (default: 0.5)
+    - max_body_position: حداکثر موقعیت body در range (default: 0.4 = bottom 40%)
     """
 
     def __init__(
@@ -57,9 +63,9 @@ class ShootingStarPattern(BasePattern):
 
         Args:
             config: Configuration dictionary
-            min_upper_shadow_ratio: حداقل نسبت upper shadow/body (default: 2.0)
-            max_lower_shadow_ratio: حداکثر نسبت lower shadow/body (default: 0.1)
-            max_body_position: حداکثر موقعیت body (0.33 = bottom 1/3)
+            min_upper_shadow_ratio: حداقل نسبت upper shadow/body (default: 1.5)
+            max_lower_shadow_ratio: حداکثر نسبت lower shadow/body (default: 0.5)
+            max_body_position: حداکثر موقعیت body (0.4 = bottom 40%)
         """
         super().__init__(config)
 
@@ -67,19 +73,19 @@ class ShootingStarPattern(BasePattern):
         self.min_upper_shadow_ratio = (
             min_upper_shadow_ratio
             if min_upper_shadow_ratio is not None
-            else config.get('shooting_star_min_upper_shadow_ratio', 2.0) if config else 2.0
+            else config.get('shooting_star_min_upper_shadow_ratio', 1.5) if config else 1.5
         )
 
         self.max_lower_shadow_ratio = (
             max_lower_shadow_ratio
             if max_lower_shadow_ratio is not None
-            else config.get('shooting_star_max_lower_shadow_ratio', 0.1) if config else 0.1
+            else config.get('shooting_star_max_lower_shadow_ratio', 0.5) if config else 0.5
         )
 
         self.max_body_position = (
             max_body_position
             if max_body_position is not None
-            else config.get('shooting_star_max_body_position', 0.33) if config else 0.33
+            else config.get('shooting_star_max_body_position', 0.4) if config else 0.4
         )
 
         self.version = SHOOTING_STAR_PATTERN_VERSION

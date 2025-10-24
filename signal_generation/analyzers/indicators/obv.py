@@ -42,7 +42,7 @@ class OBVIndicator(BaseIndicator):
 
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate OBV.
+        Calculate OBV with proper handling of edge cases.
 
         Args:
             df: DataFrame with OHLCV data
@@ -52,10 +52,20 @@ class OBVIndicator(BaseIndicator):
         """
         result_df = df.copy()
 
-        # Calculate price direction
+        # Calculate price direction (-1, 0, +1)
         price_direction = np.sign(result_df['close'].diff())
 
-        # OBV is cumulative sum of (volume * direction)
-        result_df['obv'] = (result_df['volume'] * price_direction).cumsum()
+        # Ensure volume is valid (replace NaN and negative values with 0)
+        volume = result_df['volume'].fillna(0)
+        volume = volume.clip(lower=0)  # No negative volumes
+
+        # Calculate signed volume
+        signed_volume = volume * price_direction
+
+        # Replace NaN and inf values with 0 before cumsum
+        signed_volume = signed_volume.replace([np.inf, -np.inf], 0).fillna(0)
+
+        # OBV is cumulative sum of signed volume
+        result_df['obv'] = signed_volume.cumsum()
 
         return result_df

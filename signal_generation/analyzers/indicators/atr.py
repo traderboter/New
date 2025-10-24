@@ -43,7 +43,7 @@ class ATRIndicator(BaseIndicator):
 
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate ATR.
+        Calculate ATR using Exponential Moving Average (Wilder's smoothing).
 
         Args:
             df: DataFrame with OHLCV data
@@ -61,7 +61,8 @@ class ATRIndicator(BaseIndicator):
         # True Range is the maximum of the three
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
 
-        # ATR is the moving average of True Range
-        result_df['atr'] = true_range.rolling(window=self.period).mean()
+        # ATR uses EMA (Wilder's smoothing method) instead of SMA
+        # This is the standard calculation for ATR
+        result_df['atr'] = true_range.ewm(span=self.period, adjust=False).mean()
 
         return result_df

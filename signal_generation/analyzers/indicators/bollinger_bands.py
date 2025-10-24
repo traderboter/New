@@ -48,7 +48,7 @@ class BollingerBandsIndicator(BaseIndicator):
 
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate Bollinger Bands.
+        Calculate Bollinger Bands using population standard deviation.
 
         Args:
             df: DataFrame with OHLCV data
@@ -62,7 +62,8 @@ class BollingerBandsIndicator(BaseIndicator):
         result_df['bb_middle'] = result_df['close'].rolling(window=self.period).mean()
 
         # Calculate standard deviation
-        std = result_df['close'].rolling(window=self.period).std()
+        # Use ddof=0 for population standard deviation (standard for Bollinger Bands)
+        std = result_df['close'].rolling(window=self.period).std(ddof=0)
 
         # Calculate upper and lower bands
         result_df['bb_upper'] = result_df['bb_middle'] + (std * self.std_multiplier)

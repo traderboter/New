@@ -10,7 +10,12 @@ Pattern Testing Framework - تست تک‌تک الگوها روی داده‌ه
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Add project root to Python path
+# __file__ is in: New/signal_generation/tests/test_pattern.py
+# We need to add: New/
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 import pandas as pd
 import numpy as np
@@ -56,6 +61,15 @@ class PatternTester:
         # تایم‌فریم‌های موجود
         self.timeframes = ['5m', '15m', '1h', '4h']
 
+        # Mapping بین نام تایم‌فریم و نام فایل CSV
+        # این mapping با انواع مختلف نام‌گذاری فایل‌ها سازگار است
+        self.timeframe_to_filename = {
+            '5m': ['5m.csv', '5min.csv'],
+            '15m': ['15m.csv', '15min.csv'],
+            '1h': ['1h.csv', '1hour.csv'],
+            '4h': ['4h.csv', '4hour.csv']
+        }
+
         # نتایج
         self.results = {}
 
@@ -72,10 +86,18 @@ class PatternTester:
         Returns:
             DataFrame با داده‌های OHLCV
         """
-        csv_file = self.data_dir / f"{timeframe}.csv"
+        # سعی می‌کنیم فایل را با نام‌های مختلف پیدا کنیم
+        possible_filenames = self.timeframe_to_filename.get(timeframe, [f"{timeframe}.csv"])
 
-        if not csv_file.exists():
-            logger.warning(f"File not found: {csv_file}")
+        csv_file = None
+        for filename in possible_filenames:
+            file_path = self.data_dir / filename
+            if file_path.exists():
+                csv_file = file_path
+                break
+
+        if csv_file is None:
+            logger.warning(f"File not found for timeframe {timeframe}. Tried: {possible_filenames}")
             return None
 
         try:

@@ -259,20 +259,26 @@ class VolatilityAnalyzer(BaseAnalyzer):
         Returns:
             BB analysis dict
         """
-        # Calculate BB width
-        bb_width = (bb_upper - bb_lower) / bb_middle
-        
+        # Calculate BB width with safety check for division by zero
+        if bb_middle != 0 and not pd.isna(bb_middle):
+            bb_width = (bb_upper - bb_lower) / bb_middle
+        else:
+            bb_width = 0.0
+
         # Calculate BB width percentile
         lookback = min(self.atr_lookback, len(df))
         historical_widths = []
-        
+
         for i in range(-lookback, 0):
             try:
                 upper = df['bb_upper'].iloc[i]
                 lower = df['bb_lower'].iloc[i]
                 middle = df['bb_middle'].iloc[i]
-                width = (upper - lower) / middle
-                historical_widths.append(width)
+
+                # Safety check for division
+                if middle != 0 and not pd.isna(middle):
+                    width = (upper - lower) / middle
+                    historical_widths.append(width)
             except:
                 continue
         

@@ -346,25 +346,34 @@ class MomentumAnalyzer(BaseAnalyzer):
             rsi_highs = recent_df['rsi'].rolling(window=3, center=True).max()
             
             # Bullish divergence: price making lower low, RSI making higher low
-            price_lower_low = price_lows.iloc[-1] < price_lows.iloc[-5] if len(price_lows) > 5 else False
-            rsi_higher_low = rsi_lows.iloc[-1] > rsi_lows.iloc[-5] if len(rsi_lows) > 5 else False
-            
+            # Ensure we have enough data before accessing indices
+            price_lower_low = False
+            rsi_higher_low = False
+
+            if len(price_lows) >= 6:  # Need at least 6 to safely access iloc[-5]
+                price_lower_low = price_lows.iloc[-1] < price_lows.iloc[-5]
+                rsi_higher_low = rsi_lows.iloc[-1] > rsi_lows.iloc[-5]
+
             if price_lower_low and rsi_higher_low:
                 return {
                     'type': 'bullish',
                     'strength': 'strong' if rsi_lows.iloc[-1] < 40 else 'moderate'
                 }
-            
+
             # Bearish divergence: price making higher high, RSI making lower high
-            price_higher_high = price_highs.iloc[-1] > price_highs.iloc[-5] if len(price_highs) > 5 else False
-            rsi_lower_high = rsi_highs.iloc[-1] < rsi_highs.iloc[-5] if len(rsi_highs) > 5 else False
-            
+            price_higher_high = False
+            rsi_lower_high = False
+
+            if len(price_highs) >= 6:  # Need at least 6 to safely access iloc[-5]
+                price_higher_high = price_highs.iloc[-1] > price_highs.iloc[-5]
+                rsi_lower_high = rsi_highs.iloc[-1] < rsi_highs.iloc[-5]
+
             if price_higher_high and rsi_lower_high:
                 return {
                     'type': 'bearish',
                     'strength': 'strong' if rsi_highs.iloc[-1] > 60 else 'moderate'
                 }
-            
+
             return None
             
         except Exception as e:

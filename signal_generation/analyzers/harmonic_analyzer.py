@@ -252,9 +252,36 @@ class HarmonicAnalyzer(BaseAnalyzer):
         return min_val <= value <= max_val
     
     def _calculate_completion(self, x, a, b, c, d, ratios: Dict) -> float:
-        """Calculate pattern completion percentage."""
-        # Simple completion based on point D
-        return 0.85  # Most patterns we detect are near completion
+        """
+        Calculate pattern completion percentage based on actual price position.
+
+        Args:
+            x, a, b, c, d: Pattern points
+            ratios: Expected pattern ratios
+
+        Returns:
+            Completion percentage (0-1)
+        """
+        try:
+            # Calculate expected D level based on XA_AD ratio
+            xa = abs(a['price'] - x['price'])
+            expected_ad_ratio = (ratios['XA_AD'][0] + ratios['XA_AD'][1]) / 2  # Average
+            expected_d_price = a['price'] + (xa * expected_ad_ratio * (1 if a['price'] > x['price'] else -1))
+
+            # Calculate actual AD
+            actual_ad = abs(d['price'] - a['price'])
+
+            # Completion is how close actual is to expected
+            if expected_d_price != 0:
+                completion = min(abs(actual_ad / (expected_ad_ratio * xa)), 1.0)
+            else:
+                completion = 0.85  # Fallback
+
+            return round(completion, 2)
+
+        except Exception:
+            # Fallback to reasonable default
+            return 0.85
     
     def _calculate_targets(self, x, a, d) -> List[float]:
         """Calculate target levels."""

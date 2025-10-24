@@ -354,9 +354,11 @@ class SRAnalyzer(BaseAnalyzer):
         current_level = [sorted_prices[0]]
         
         tolerance = current_price * self.level_tolerance
-        
+
         for price in sorted_prices[1:]:
-            if abs(price - np.mean(current_level)) <= tolerance:
+            # Compare against the first price in current_level (anchor)
+            # This provides more consistent grouping than comparing against mean
+            if abs(price - current_level[0]) <= tolerance:
                 current_level.append(price)
             else:
                 # Save current level
@@ -364,11 +366,11 @@ class SRAnalyzer(BaseAnalyzer):
                     levels.append((np.mean(current_level), len(current_level)))
                 # Start new level
                 current_level = [price]
-        
+
         # Don't forget last level
         if len(current_level) >= self.min_touches:
             levels.append((np.mean(current_level), len(current_level)))
-        
+
         return levels
     
     def _calculate_single_level_strength(

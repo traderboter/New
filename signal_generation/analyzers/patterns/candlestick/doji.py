@@ -31,15 +31,27 @@ class DojiPattern(BasePattern):
     - Relaxed: 0.15 (15%)
     """
 
-    def __init__(self, body_ratio_threshold: float = 0.10):
+    def __init__(self, config: Dict[str, Any] = None, body_ratio_threshold: float = None):
         """
         Initialize Doji detector.
 
         Args:
+            config: Configuration dictionary (from orchestrator)
             body_ratio_threshold: Maximum ratio of body to full range (default: 0.10 = 10%)
+                                 Can also be set via config['doji_threshold']
         """
-        super().__init__()
-        self.body_ratio_threshold = body_ratio_threshold
+        super().__init__(config)
+
+        # Determine threshold from multiple sources (priority order):
+        # 1. Direct parameter
+        # 2. Config dictionary
+        # 3. Default value (0.10)
+        if body_ratio_threshold is not None:
+            self.body_ratio_threshold = body_ratio_threshold
+        elif config and 'doji_threshold' in config:
+            self.body_ratio_threshold = config['doji_threshold']
+        else:
+            self.body_ratio_threshold = 0.10
 
     def _get_pattern_name(self) -> str:
         return "Doji"

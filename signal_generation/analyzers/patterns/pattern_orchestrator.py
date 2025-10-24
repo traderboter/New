@@ -77,16 +77,23 @@ class PatternOrchestrator:
         # For now, it's empty
         logger.debug("Pattern loading completed (registry empty - to be populated)")
 
-    def register_pattern(self, pattern_class: Type[BasePattern]):
+    def register_pattern(self, pattern_class_or_instance):
         """
         Register a pattern detector.
 
         Args:
-            pattern_class: Pattern class to register
+            pattern_class_or_instance: Pattern class or instance to register
+                                      If a class is provided, it will be instantiated with self.config
+                                      If an instance is provided, it will be used directly
         """
         try:
-            # Instantiate pattern
-            pattern = pattern_class(self.config)
+            # Check if it's already an instance or a class
+            if isinstance(pattern_class_or_instance, BasePattern):
+                # It's already an instance, use it directly
+                pattern = pattern_class_or_instance
+            else:
+                # It's a class, instantiate it with config
+                pattern = pattern_class_or_instance(self.config)
 
             # Add to appropriate registry
             if pattern.pattern_type == 'candlestick':
@@ -99,7 +106,8 @@ class PatternOrchestrator:
                 logger.warning(f"Unknown pattern type: {pattern.pattern_type}")
 
         except Exception as e:
-            logger.error(f"Error registering pattern {pattern_class}: {e}")
+            pattern_name = getattr(pattern_class_or_instance, '__name__', str(pattern_class_or_instance))
+            logger.error(f"Error registering pattern {pattern_name}: {e}")
 
     def detect_all_patterns(
         self,

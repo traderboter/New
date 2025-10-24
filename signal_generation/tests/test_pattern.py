@@ -217,7 +217,11 @@ class PatternTester:
 
                 # اگر الگویی یافت شد، آن را ذخیره کن
                 for d in detections:
-                    if self.pattern_name in d['name'].lower():
+                    # Normalize both strings for comparison (replace underscore with space)
+                    pattern_name_normalized = self.pattern_name.replace('_', ' ')
+                    detection_name_normalized = d['name'].lower()
+
+                    if pattern_name_normalized in detection_name_normalized:
                         # اضافه کردن index کندل برای reference
                         d['detected_at_index'] = i
                         target_detections.append(d)

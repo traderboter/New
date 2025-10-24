@@ -25,10 +25,13 @@ class TrianglePattern(BasePattern):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
-        super().__init__(config)
+        # Initialize instance variables BEFORE calling super().__init__
+        # because _get_pattern_name() and _get_direction() will be called during parent init
+        self._detected_type = None  # 'ascending', 'descending', or 'symmetrical'
         self.slope_threshold = config.get('triangle_slope_threshold', 0.0001) if config else 0.0001
         self.min_lookback = config.get('triangle_min_lookback', 20) if config else 20
-        self._detected_type = None  # 'ascending', 'descending', or 'symmetrical'
+
+        super().__init__(config)
 
     def _get_pattern_name(self) -> str:
         if self._detected_type == 'ascending':

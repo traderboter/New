@@ -27,10 +27,13 @@ class HeadShouldersPattern(BasePattern):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
-        super().__init__(config)
+        # Initialize instance variables BEFORE calling super().__init__
+        # because _get_pattern_name() will be called during parent init
+        self._detected_type = None  # 'regular' or 'inverse'
         self.shoulder_tolerance = config.get('hs_shoulder_tolerance', 0.05) if config else 0.05
         self.min_distance = config.get('hs_min_distance', 5) if config else 5
-        self._detected_type = None  # 'regular' or 'inverse'
+
+        super().__init__(config)
 
     def _get_pattern_name(self) -> str:
         if self._detected_type == 'regular':

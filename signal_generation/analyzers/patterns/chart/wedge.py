@@ -24,9 +24,12 @@ class WedgePattern(BasePattern):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
-        super().__init__(config)
-        self.min_lookback = config.get('wedge_min_lookback', 20) if config else 20
+        # Initialize instance variables BEFORE calling super().__init__
+        # because _get_pattern_name() will be called during parent init
         self._detected_type = None  # 'rising' or 'falling'
+        self.min_lookback = config.get('wedge_min_lookback', 20) if config else 20
+
+        super().__init__(config)
 
     def _get_pattern_name(self) -> str:
         if self._detected_type == 'rising':

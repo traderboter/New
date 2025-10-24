@@ -21,10 +21,11 @@ class EMAIndicator(BaseIndicator):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
-        super().__init__(config)
-
-        # Get periods from config
+        # Get periods from config BEFORE calling super().__init__
+        # This is needed because _get_output_columns() will be called during parent init
         self.periods = config.get('ema_periods', [20, 50, 200]) if config else [20, 50, 200]
+
+        super().__init__(config)
 
     def _get_indicator_name(self) -> str:
         return "EMA"

@@ -104,7 +104,9 @@ class DoubleTopBottomPattern(BasePattern):
             peak_heights = highs[last_two_peaks]
 
             # Check if peaks are similar (within tolerance)
-            height_diff = abs(peak_heights[0] - peak_heights[1]) / peak_heights[0]
+            # Use safe division to avoid division by zero
+            safe_peak_height = max(peak_heights[0], 0.0001)
+            height_diff = abs(peak_heights[0] - peak_heights[1]) / safe_peak_height
 
             return height_diff < self.tolerance
 
@@ -129,7 +131,9 @@ class DoubleTopBottomPattern(BasePattern):
             trough_depths = lows[last_two_troughs]
 
             # Check if troughs are similar (within tolerance)
-            depth_diff = abs(trough_depths[0] - trough_depths[1]) / trough_depths[0]
+            # Use safe division to avoid division by zero
+            safe_trough_depth = max(trough_depths[0], 0.0001)
+            depth_diff = abs(trough_depths[0] - trough_depths[1]) / safe_trough_depth
 
             return depth_diff < self.tolerance
 
@@ -171,11 +175,14 @@ class DoubleTopBottomPattern(BasePattern):
                 peak_heights = highs[last_two]
 
                 # Calculate similarity
-                similarity = 1.0 - (abs(peak_heights[0] - peak_heights[1]) / peak_heights[0])
+                # Use safe division to avoid division by zero
+                safe_peak_height = max(peak_heights[0], 0.0001)
+                similarity = 1.0 - (abs(peak_heights[0] - peak_heights[1]) / safe_peak_height)
 
                 # Find valley between peaks
                 valley_idx = last_two[0] + np.argmin(highs[last_two[0]:last_two[1]])
-                valley_depth = (min(peak_heights) - highs[valley_idx]) / min(peak_heights)
+                safe_min_peak = max(min(peak_heights), 0.0001)
+                valley_depth = (min(peak_heights) - highs[valley_idx]) / safe_min_peak
 
                 return {
                     'location': 'recent',
@@ -209,11 +216,14 @@ class DoubleTopBottomPattern(BasePattern):
                 trough_depths = lows[last_two]
 
                 # Calculate similarity
-                similarity = 1.0 - (abs(trough_depths[0] - trough_depths[1]) / trough_depths[0])
+                # Use safe division to avoid division by zero
+                safe_trough_depth = max(trough_depths[0], 0.0001)
+                similarity = 1.0 - (abs(trough_depths[0] - trough_depths[1]) / safe_trough_depth)
 
                 # Find peak between troughs
                 peak_idx = last_two[0] + np.argmax(lows[last_two[0]:last_two[1]])
-                peak_height = (lows[peak_idx] - max(trough_depths)) / max(trough_depths)
+                safe_max_trough = max(max(trough_depths), 0.0001)
+                peak_height = (lows[peak_idx] - max(trough_depths)) / safe_max_trough
 
                 return {
                     'location': 'recent',

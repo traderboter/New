@@ -47,16 +47,18 @@ class PatternTester:
     - آمار دقیق
     """
 
-    def __init__(self, data_dir: str, pattern_name: str):
+    def __init__(self, data_dir: str, pattern_name: str, threshold: float = None):
         """
         مقداردهی اولیه
 
         Args:
             data_dir: مسیر دایرکتوری داده‌ها (مثلا: historical/BTC-USDT)
             pattern_name: نام الگو (مثلا: doji, hammer)
+            threshold: آستانه body_ratio برای الگوی Doji (پیش‌فرض: 0.10)
         """
         self.data_dir = Path(data_dir)
         self.pattern_name = pattern_name.lower()
+        self.threshold = threshold
 
         # تایم‌فریم‌های موجود
         self.timeframes = ['5m', '15m', '1h', '4h']
@@ -75,6 +77,8 @@ class PatternTester:
 
         logger.info(f"PatternTester initialized for pattern: {pattern_name}")
         logger.info(f"Data directory: {data_dir}")
+        if threshold is not None:
+            logger.info(f"Doji threshold: {threshold}")
 
     def load_data(self, timeframe: str) -> pd.DataFrame:
         """
@@ -160,8 +164,14 @@ class PatternTester:
                     'detections': []
                 }
 
-            orchestrator.register_pattern(pattern_class)
-            print(f"✓ Pattern registered: {pattern_class.__name__}")
+            # اگر الگو Doji است و threshold مشخص شده، آن را بفرست
+            if self.pattern_name == 'doji' and self.threshold is not None:
+                pattern_instance = pattern_class(body_ratio_threshold=self.threshold)
+                orchestrator.register_pattern(pattern_instance)
+                print(f"✓ Pattern registered: {pattern_class.__name__} (threshold={self.threshold})")
+            else:
+                orchestrator.register_pattern(pattern_class)
+                print(f"✓ Pattern registered: {pattern_class.__name__}")
 
         except Exception as e:
             logger.error(f"Error initializing orchestrator: {e}")
@@ -441,13 +451,21 @@ def main():
         default='historical/BTC-USDT',
         help='Data directory path (default: historical/BTC-USDT)'
     )
+    parser.add_argument(
+        '--threshold',
+        type=float,
+        default=None,
+        help='Body ratio threshold for Doji pattern (default: 0.10). '
+             'Examples: 0.05 (strict), 0.10 (standard), 0.15 (relaxed)'
+    )
 
     args = parser.parse_args()
 
     try:
         tester = PatternTester(
             data_dir=args.data_dir,
-            pattern_name=args.pattern
+            pattern_name=args.pattern,
+            threshold=args.threshold
         )
 
         results = tester.run_all_timeframes()
@@ -455,6 +473,11 @@ def main():
         print(f"\n✅ Testing completed!")
         print(f"\nTo test another pattern, run:")
         print(f"  python test_pattern.py --pattern <pattern_name> --data-dir {args.data_dir}")
+        if args.pattern.lower() == 'doji':
+            print(f"\nFor Doji pattern, you can adjust threshold:")
+            print(f"  python test_pattern.py --pattern doji --threshold 0.05  (strict)")
+            print(f"  python test_pattern.py --pattern doji --threshold 0.10  (standard)")
+            print(f"  python test_pattern.py --pattern doji --threshold 0.15  (relaxed)")
 
         return 0
 

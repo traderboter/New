@@ -199,31 +199,41 @@ class HTFAnalyzer(BaseAnalyzer):
             return 'unknown'
     
     def _find_htf_levels(self, htf_df: pd.DataFrame) -> tuple:
-        """Find HTF support and resistance."""
+        """
+        Find HTF support and resistance levels.
+
+        Args:
+            htf_df: Higher timeframe DataFrame
+
+        Returns:
+            Tuple of (support, resistance)
+        """
         try:
             lookback = min(self.lookback, len(htf_df))
             recent = htf_df.tail(lookback)
-            
+
             current_price = htf_df['close'].iloc[-1]
-            
-            # Find recent swing lows (support)
+
+            # Find recent swing lows (support) - levels below current price
             lows = recent['low'].values
+            support_levels = [low for low in lows if low < current_price]
+
+            # Find nearest support (closest level below current price)
             support = None
-            for low in sorted(lows)[:5]:
-                if low < current_price:
-                    support = low
-                    break
-            
-            # Find recent swing highs (resistance)
+            if support_levels:
+                support = max(support_levels)  # Maximum of values below current price = nearest
+
+            # Find recent swing highs (resistance) - levels above current price
             highs = recent['high'].values
+            resistance_levels = [high for high in highs if high > current_price]
+
+            # Find nearest resistance (closest level above current price)
             resistance = None
-            for high in sorted(highs, reverse=True)[:5]:
-                if high > current_price:
-                    resistance = high
-                    break
-            
+            if resistance_levels:
+                resistance = min(resistance_levels)  # Minimum of values above current price = nearest
+
             return support, resistance
-            
+
         except Exception as e:
             logger.debug(f"HTF level finding failed: {e}")
             return None, None

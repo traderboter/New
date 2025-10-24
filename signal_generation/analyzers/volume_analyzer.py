@@ -283,18 +283,40 @@ class VolumeAnalyzer(BaseAnalyzer):
         x = np.arange(len(recent_obv))
         try:
             slope = np.polyfit(x, recent_obv, 1)[0]
-            
-            # Determine trend
+
+            # Normalize slope by average OBV value for meaningful strength calculation
+            avg_obv = abs(np.mean(recent_obv))
+            if avg_obv > 0:
+                normalized_slope = abs(slope) / avg_obv
+            else:
+                normalized_slope = 0
+
+            # Determine trend and strength based on normalized slope
             if slope > 0:
                 trend = 'bullish'
-                strength = min(int(abs(slope) / 1000), 3)  # Normalize to 0-3
+                # Strength thresholds: 0.01 = weak, 0.05 = moderate, 0.1+ = strong
+                if normalized_slope >= 0.1:
+                    strength = 3
+                elif normalized_slope >= 0.05:
+                    strength = 2
+                elif normalized_slope >= 0.01:
+                    strength = 1
+                else:
+                    strength = 0
             elif slope < 0:
                 trend = 'bearish'
-                strength = min(int(abs(slope) / 1000), 3)
+                if normalized_slope >= 0.1:
+                    strength = 3
+                elif normalized_slope >= 0.05:
+                    strength = 2
+                elif normalized_slope >= 0.01:
+                    strength = 1
+                else:
+                    strength = 0
             else:
                 trend = 'neutral'
                 strength = 0
-            
+
             return {
                 'trend': trend,
                 'slope': slope,

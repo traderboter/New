@@ -69,23 +69,30 @@ class HammerPattern(BasePattern):
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Get additional details about Hammer detection."""
-        last_candle = df.iloc[-1]
+        # Validate dataframe
+        if len(df) == 0:
+            return super()._get_detection_details(df)
 
-        # Calculate shadow ratios
-        body_size = abs(last_candle['close'] - last_candle['open'])
-        lower_shadow = min(last_candle['open'], last_candle['close']) - last_candle['low']
-        upper_shadow = last_candle['high'] - max(last_candle['open'], last_candle['close'])
+        try:
+            last_candle = df.iloc[-1]
 
-        shadow_ratio = lower_shadow / body_size if body_size > 0 else 0
+            # Calculate shadow ratios
+            body_size = abs(last_candle['close'] - last_candle['open'])
+            lower_shadow = min(last_candle['open'], last_candle['close']) - last_candle['low']
+            upper_shadow = last_candle['high'] - max(last_candle['open'], last_candle['close'])
 
-        return {
-            'location': 'current',
-            'candles_ago': 0,
-            'confidence': min(0.7 + (shadow_ratio / 10), 0.95),  # Higher shadow ratio = higher confidence
-            'metadata': {
-                'body_size': float(body_size),
-                'lower_shadow': float(lower_shadow),
-                'upper_shadow': float(upper_shadow),
-                'shadow_ratio': float(shadow_ratio)
+            shadow_ratio = lower_shadow / body_size if body_size > 0 else 0
+
+            return {
+                'location': 'current',
+                'candles_ago': 0,
+                'confidence': min(0.7 + (shadow_ratio / 10), 0.95),  # Higher shadow ratio = higher confidence
+                'metadata': {
+                    'body_size': float(body_size),
+                    'lower_shadow': float(lower_shadow),
+                    'upper_shadow': float(upper_shadow),
+                    'shadow_ratio': float(shadow_ratio)
+                }
             }
-        }
+        except Exception:
+            return super()._get_detection_details(df)

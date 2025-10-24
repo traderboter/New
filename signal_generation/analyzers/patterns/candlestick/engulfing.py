@@ -38,6 +38,19 @@ class EngulfingPattern(BasePattern):
     def _get_base_strength(self) -> int:
         return 3  # Strong pattern
 
+    def _get_talib_result(self, df: pd.DataFrame) -> np.ndarray:
+        """Get TALib CDLENGULFING result (helper method to avoid duplicate calls)."""
+        try:
+            result = talib.CDLENGULFING(
+                df['open'].values,
+                df['high'].values,
+                df['low'].values,
+                df['close'].values
+            )
+            return result
+        except Exception:
+            return np.array([])
+
     def detect(
         self,
         df: pd.DataFrame,
@@ -73,13 +86,11 @@ class EngulfingPattern(BasePattern):
     ) -> str:
         """Determine actual direction (bullish or bearish)."""
         try:
-            # Use TALib result to determine direction
-            result = talib.CDLENGULFING(
-                df['open'].values,
-                df['high'].values,
-                df['low'].values,
-                df['close'].values
-            )
+            # Use helper method to get TALib result
+            result = self._get_talib_result(df)
+
+            if len(result) == 0:
+                return 'bullish'
 
             # Positive = bullish, negative = bearish
             return 'bullish' if result[-1] > 0 else 'bearish'
@@ -89,27 +100,36 @@ class EngulfingPattern(BasePattern):
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Get additional details about Engulfing detection."""
+        # Validate minimum candles
         if len(df) < 2:
             return super()._get_detection_details(df)
 
-        # Get last two candles
-        prev_candle = df.iloc[-2]
-        curr_candle = df.iloc[-1]
+        try:
+            # Get last two candles
+            prev_candle = df.iloc[-2]
+            curr_candle = df.iloc[-1]
 
-        # Calculate body sizes
-        prev_body = abs(prev_candle['close'] - prev_candle['open'])
-        curr_body = abs(curr_candle['close'] - curr_candle['open'])
+            # Calculate body sizes
+            prev_body = abs(prev_candle['close'] - prev_candle['open'])
+            curr_body = abs(curr_candle['close'] - curr_candle['open'])
 
-        # Engulfing ratio (how much bigger is current body)
-        engulfing_ratio = curr_body / prev_body if prev_body > 0 else 1
+            # Engulfing ratio (how much bigger is current body)
+            engulfing_ratio = curr_body / prev_body if prev_body > 0 else 1
 
-        return {
-            'location': 'current',
-            'candles_ago': 0,
-            'confidence': min(0.75 + (engulfing_ratio / 10), 0.95),
-            'metadata': {
-                'prev_body_size': float(prev_body),
-                'curr_body_size': float(curr_body),
-                'engulfing_ratio': float(engulfing_ratio)
+            # Determine direction using TALib result
+            result = self._get_talib_result(df)
+            direction = 'bullish' if len(result) > 0 and result[-1] > 0 else 'bearish'
+
+            return {
+                'location': 'current',
+                'candles_ago': 0,
+                'confidence': min(0.75 + (engulfing_ratio / 10), 0.95),
+                'metadata': {
+                    'prev_body_size': float(prev_body),
+                    'curr_body_size': float(curr_body),
+                    'engulfing_ratio': float(engulfing_ratio),
+                    'pattern_direction': direction
+                }
             }
-        }
+        except Exception:
+            return super()._get_detection_details(df)

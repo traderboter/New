@@ -10,7 +10,12 @@ Pattern Testing Framework - تست تک‌تک الگوها روی داده‌ه
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Add project root to Python path
+# __file__ is in: New/signal_generation/tests/test_pattern.py
+# We need to add: New/
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 import pandas as pd
 import numpy as np

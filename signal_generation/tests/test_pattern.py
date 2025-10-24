@@ -8,7 +8,7 @@ Pattern Testing Framework - تست تک‌تک الگوها روی داده‌ه
     python test_pattern.py --pattern doji --data-dir historical/BTC-USDT
 """
 
-TEST_PATTERN_VERSION = "1.1.0"
+TEST_PATTERN_VERSION = "1.2.0"
 TEST_PATTERN_DATE = "2025-10-24"
 
 import sys
@@ -267,8 +267,21 @@ class PatternTester:
             print(f"     Strength: {detection['base_strength']}/3")
             print(f"     Confidence: {detection.get('confidence', 0):.2f}")
 
-            # نمایش metadata اگر موجود باشد
-            if 'metadata' in detection:
+            # نمایش quality metrics برای Doji
+            if 'metadata' in detection and self.pattern_name == 'doji':
+                meta = detection['metadata']
+                print(f"\n     📈 Quality Metrics:")
+                print(f"        Quality Score:    {meta.get('quality_score', 0):.2f}/100")
+                print(f"        Overall Quality:  {meta.get('overall_quality', 0):.2f}/100")
+                print(f"        Symmetry Score:   {meta.get('symmetry_score', 0):.2f}/100")
+                print(f"        Doji Type:        {meta.get('doji_type', 'Unknown')}")
+
+                print(f"\n     🔍 Technical Details:")
+                print(f"        Body Ratio:       {meta.get('body_ratio', 0):.4f} ({meta.get('body_ratio', 0)*100:.2f}%)")
+                print(f"        Upper Shadow:     {meta.get('upper_shadow_ratio', 0):.2%}")
+                print(f"        Lower Shadow:     {meta.get('lower_shadow_ratio', 0):.2%}")
+                print(f"        Threshold:        {meta.get('threshold', 0):.2f}")
+            elif 'metadata' in detection:
                 print(f"     Metadata: {detection['metadata']}")
 
             # نمایش context کندل (5 کندل قبل و 2 کندل بعد)
@@ -458,6 +471,80 @@ class PatternTester:
         else:
             print(f"  ✓ Pattern detected successfully across timeframes")
             print(f"  Total: {total_detections} detections in {total_candles} candles")
+
+            # Quality Statistics for Doji
+            if self.pattern_name == 'doji' and total_detections > 0:
+                self._print_quality_stats(results)
+
+    def _print_quality_stats(self, results: dict):
+        """
+        نمایش آمار کیفیت برای الگوهای Doji
+
+        Args:
+            results: دیکشنری نتایج
+        """
+        print(f"\n{'='*80}")
+        print(f"📊 Quality Statistics - DOJI")
+        print(f"{'='*80}")
+
+        all_qualities = []
+        all_types = []
+
+        for tf, result in results.items():
+            if result['status'] == 'ok' and result['detections']:
+                for detection in result['detections']:
+                    if 'metadata' in detection:
+                        meta = detection['metadata']
+                        if 'overall_quality' in meta:
+                            all_qualities.append(meta['overall_quality'])
+                        if 'doji_type' in meta:
+                            all_types.append(meta['doji_type'])
+
+        if all_qualities:
+            import numpy as np
+
+            qualities = np.array(all_qualities)
+
+            print(f"\nOverall Quality Distribution:")
+            print(f"  Mean:     {qualities.mean():.2f}")
+            print(f"  Median:   {np.median(qualities):.2f}")
+            print(f"  Std Dev:  {qualities.std():.2f}")
+            print(f"  Min:      {qualities.min():.2f}")
+            print(f"  Max:      {qualities.max():.2f}")
+
+            # Quality ranges
+            print(f"\nQuality Ranges:")
+            high_q = len(qualities[qualities >= 70])
+            med_q = len(qualities[(qualities >= 40) & (qualities < 70)])
+            low_q = len(qualities[qualities < 40])
+
+            print(f"  High Quality (≥70):    {high_q:>5} ({high_q/len(qualities)*100:>5.1f}%)")
+            print(f"  Medium Quality (40-69): {med_q:>5} ({med_q/len(qualities)*100:>5.1f}%)")
+            print(f"  Low Quality (<40):      {low_q:>5} ({low_q/len(qualities)*100:>5.1f}%)")
+
+        if all_types:
+            from collections import Counter
+            type_counts = Counter(all_types)
+
+            print(f"\nDoji Type Distribution:")
+            for doji_type, count in type_counts.most_common():
+                percentage = count / len(all_types) * 100
+                print(f"  {doji_type:<15} {count:>5} ({percentage:>5.1f}%)")
+
+        print(f"\n💡 Trading Insights:")
+        if all_qualities:
+            avg_quality = qualities.mean()
+            if avg_quality >= 60:
+                print(f"  ✓ High average quality ({avg_quality:.1f}) - Strong signals")
+            elif avg_quality >= 40:
+                print(f"  ℹ️  Medium average quality ({avg_quality:.1f}) - Use with confirmation")
+            else:
+                print(f"  ⚠️  Low average quality ({avg_quality:.1f}) - Requires additional filters")
+
+        print(f"\n📝 Filtering Recommendations:")
+        print(f"  • For high-confidence trades: overall_quality >= 70")
+        print(f"  • For moderate trades: overall_quality >= 50")
+        print(f"  • Consider timeframe: Higher timeframes typically more reliable")
 
 
 def main():

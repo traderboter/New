@@ -4,12 +4,19 @@ Doji Pattern Detector
 Detects Doji candlestick pattern with configurable threshold.
 Doji is a reversal pattern indicating indecision.
 
-Version: 1.1.0 (2025-10-24)
+Version: 1.2.0 (2025-10-24)
 - جایگزینی TA-Lib با detector دستی
 - threshold قابل تنظیم (default: 0.10)
+- Quality scoring system (0-100)
+- Shadow analysis و Doji type detection
+
+Quality Score:
+- هرچه body_ratio کمتر → Quality بیشتر
+- quality_score = 100 * (1 - body_ratio / threshold)
+- مثال: body_ratio=0.01, threshold=0.10 → quality=90%
 """
 
-DOJI_PATTERN_VERSION = "1.1.0"
+DOJI_PATTERN_VERSION = "1.2.0"
 
 import talib
 import pandas as pd
@@ -112,30 +119,161 @@ class DojiPattern(BasePattern):
         except Exception as e:
             return False
 
+    def _calculate_quality_metrics(self, candle: pd.Series) -> Dict[str, Any]:
+        """
+        محاسبه معیارهای کیفیت Doji.
+
+        Quality Score (0-100):
+        - بر اساس کوچکی body نسبت به threshold
+        - 100 = Doji کامل (body = 0)
+        - 0 = حد آستانه (body_ratio = threshold)
+
+        Doji Types:
+        - Standard: سایه‌های بالا و پایین نزدیک به هم
+        - Dragonfly: سایه پایین بلند، بدون سایه بالا (صعودی)
+        - Gravestone: سایه بالا بلند، بدون سایه پایین (نزولی)
+        - Long-legged: سایه‌های بالا و پایین بلند (عدم قطعیت زیاد)
+        """
+        open_price = candle['open']
+        high = candle['high']
+        low = candle['low']
+        close = candle['close']
+
+        # محاسبه اندازه‌ها
+        body_size = abs(close - open_price)
+        full_range = high - low
+
+        if full_range == 0:
+            return self._default_quality_metrics()
+
+        body_ratio = body_size / full_range
+
+        # 1. Quality Score (0-100)
+        # هرچه body کوچکتر، کیفیت بالاتر
+        quality_score = 100 * (1.0 - (body_ratio / self.body_ratio_threshold))
+        quality_score = max(0, min(100, quality_score))  # محدود به 0-100
+
+        # 2. Shadow Analysis
+        body_midpoint = (open_price + close) / 2
+        upper_shadow = high - max(open_price, close)
+        lower_shadow = min(open_price, close) - low
+
+        upper_shadow_ratio = upper_shadow / full_range if full_range > 0 else 0
+        lower_shadow_ratio = lower_shadow / full_range if full_range > 0 else 0
+
+        # 3. Symmetry Score (0-100)
+        # هرچه سایه‌ها متقارن‌تر، امتیاز بیشتر
+        if upper_shadow + lower_shadow > 0:
+            shadow_diff = abs(upper_shadow - lower_shadow)
+            shadow_sum = upper_shadow + lower_shadow
+            symmetry_score = 100 * (1.0 - (shadow_diff / shadow_sum))
+        else:
+            symmetry_score = 0
+
+        # 4. Doji Type Detection
+        doji_type = self._detect_doji_type(
+            upper_shadow_ratio,
+            lower_shadow_ratio,
+            body_ratio
+        )
+
+        # 5. Overall Quality (ترکیب همه معیارها)
+        # 60% quality_score + 20% symmetry + 20% shadow balance
+        shadow_balance = 100 * min(upper_shadow_ratio, lower_shadow_ratio) / max(
+            upper_shadow_ratio, lower_shadow_ratio, 0.001
+        )
+
+        overall_quality = (
+            0.60 * quality_score +
+            0.20 * symmetry_score +
+            0.20 * shadow_balance
+        )
+
+        return {
+            'quality_score': round(quality_score, 2),
+            'overall_quality': round(overall_quality, 2),
+            'symmetry_score': round(symmetry_score, 2),
+            'body_ratio': float(body_ratio),
+            'body_size': float(body_size),
+            'full_range': float(full_range),
+            'upper_shadow': float(upper_shadow),
+            'lower_shadow': float(lower_shadow),
+            'upper_shadow_ratio': float(upper_shadow_ratio),
+            'lower_shadow_ratio': float(lower_shadow_ratio),
+            'doji_type': doji_type
+        }
+
+    def _detect_doji_type(
+        self,
+        upper_shadow_ratio: float,
+        lower_shadow_ratio: float,
+        body_ratio: float
+    ) -> str:
+        """تشخیص نوع Doji بر اساس سایه‌ها."""
+
+        # Dragonfly Doji: سایه پایین بلند، بدون/کم سایه بالا (صعودی)
+        if lower_shadow_ratio > 0.6 and upper_shadow_ratio < 0.1:
+            return "Dragonfly"
+
+        # Gravestone Doji: سایه بالا بلند، بدون/کم سایه پایین (نزولی)
+        if upper_shadow_ratio > 0.6 and lower_shadow_ratio < 0.1:
+            return "Gravestone"
+
+        # Long-legged Doji: هر دو سایه بلند (عدم قطعیت زیاد)
+        if upper_shadow_ratio > 0.4 and lower_shadow_ratio > 0.4:
+            return "Long-legged"
+
+        # Standard Doji: سایه‌های متعادل
+        return "Standard"
+
+    def _default_quality_metrics(self) -> Dict[str, Any]:
+        """مقادیر پیش‌فرض برای زمانی که محاسبه ممکن نیست."""
+        return {
+            'quality_score': 0.0,
+            'overall_quality': 0.0,
+            'symmetry_score': 0.0,
+            'body_ratio': 0.0,
+            'body_size': 0.0,
+            'full_range': 0.0,
+            'upper_shadow': 0.0,
+            'lower_shadow': 0.0,
+            'upper_shadow_ratio': 0.0,
+            'lower_shadow_ratio': 0.0,
+            'doji_type': 'Unknown'
+        }
+
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Get additional details about Doji detection."""
+        """
+        Get additional details about Doji detection with quality metrics.
+
+        Returns:
+            Dictionary containing:
+            - confidence: Trading confidence (0-1)
+            - metadata: Detailed quality metrics
+        """
         last_candle = df.iloc[-1]
 
-        body_size = abs(last_candle['close'] - last_candle['open'])
-        full_range = last_candle['high'] - last_candle['low']
+        # محاسبه معیارهای کیفیت
+        quality_metrics = self._calculate_quality_metrics(last_candle)
 
-        # Body should be very small relative to range
-        body_ratio = body_size / full_range if full_range > 0 else 0
-
-        # محاسبه confidence بر اساس اینکه body چقدر کوچک است
-        # هر چه body_ratio کمتر باشد، confidence بیشتر است
-        confidence = 1.0 - (body_ratio / self.body_ratio_threshold)
-        confidence = max(0.3, min(confidence, 0.9))  # محدود کردن به بازه 0.3 تا 0.9
+        # محاسبه confidence بر اساس overall_quality
+        # overall_quality: 0-100 → confidence: 0.3-0.95
+        confidence = 0.3 + (quality_metrics['overall_quality'] / 100) * 0.65
+        confidence = max(0.3, min(0.95, confidence))
 
         return {
             'location': 'current',
             'candles_ago': 0,
             'confidence': confidence,
             'metadata': {
-                'body_size': float(body_size),
-                'full_range': float(full_range),
-                'body_ratio': float(body_ratio),
+                **quality_metrics,
                 'threshold': float(self.body_ratio_threshold),
-                'detector_version': DOJI_PATTERN_VERSION
+                'detector_version': DOJI_PATTERN_VERSION,
+                'price_info': {
+                    'open': float(last_candle['open']),
+                    'high': float(last_candle['high']),
+                    'low': float(last_candle['low']),
+                    'close': float(last_candle['close'])
+                }
             }
         }

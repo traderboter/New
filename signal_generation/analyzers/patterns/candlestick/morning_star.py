@@ -71,34 +71,49 @@ class MorningStarPattern(BasePattern):
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Get additional details about Morning Star detection."""
+        # Validate minimum candles
         if len(df) < 3:
             return super()._get_detection_details(df)
 
-        # Get last three candles
-        first_candle = df.iloc[-3]
-        star_candle = df.iloc[-2]
-        last_candle = df.iloc[-1]
+        try:
+            # Get last three candles
+            first_candle = df.iloc[-3]
+            star_candle = df.iloc[-2]
+            last_candle = df.iloc[-1]
 
-        # Calculate body sizes
-        first_body = abs(first_candle['close'] - first_candle['open'])
-        star_body = abs(star_candle['close'] - star_candle['open'])
-        last_body = abs(last_candle['close'] - last_candle['open'])
+            # Calculate body sizes
+            first_body = abs(first_candle['close'] - first_candle['open'])
+            star_body = abs(star_candle['close'] - star_candle['open'])
+            last_body = abs(last_candle['close'] - last_candle['open'])
 
-        # Star should be small
-        star_ratio = star_body / first_body if first_body > 0 else 0
+            # Star should be small (lower star_ratio = better)
+            star_ratio = star_body / first_body if first_body > 0 else 0
 
-        # Last candle should be strong
-        strength_ratio = last_body / first_body if first_body > 0 else 1
+            # Last candle should be strong (higher strength_ratio = better)
+            strength_ratio = last_body / first_body if first_body > 0 else 1
 
-        return {
-            'location': 'current',
-            'candles_ago': 0,
-            'confidence': min(0.80 + (strength_ratio / 10), 0.95),
-            'metadata': {
-                'first_body': float(first_body),
-                'star_body': float(star_body),
-                'last_body': float(last_body),
-                'star_ratio': float(star_ratio),
-                'strength_ratio': float(strength_ratio)
+            # Calculate confidence: higher strength + smaller star = higher confidence
+            # Subtract star_ratio to reward smaller stars
+            confidence_score = 0.80 + (strength_ratio / 10) - (star_ratio / 20)
+            confidence = min(max(confidence_score, 0.70), 0.95)  # Keep in valid range
+
+            # Determine candle directions
+            first_direction = 'bearish' if first_candle['close'] < first_candle['open'] else 'bullish'
+            last_direction = 'bullish' if last_candle['close'] > last_candle['open'] else 'bearish'
+
+            return {
+                'location': 'current',
+                'candles_ago': 0,
+                'confidence': confidence,
+                'metadata': {
+                    'first_body': float(first_body),
+                    'star_body': float(star_body),
+                    'last_body': float(last_body),
+                    'star_ratio': float(star_ratio),
+                    'strength_ratio': float(strength_ratio),
+                    'first_candle_direction': first_direction,
+                    'last_candle_direction': last_direction
+                }
             }
-        }
+        except Exception:
+            return super()._get_detection_details(df)

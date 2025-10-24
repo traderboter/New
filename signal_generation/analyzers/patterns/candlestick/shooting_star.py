@@ -4,6 +4,16 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern with configurable thresholds.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 1.3.0 (2025-10-24)
+- 🔧 FIX CRITICAL: تغییر منطق detection از body-based به range-based
+- قبلاً: مقایسه shadows با body size (منطق اشتباه!)
+- حالا: مقایسه shadows با full range (منطق صحیح!)
+- Thresholds جدید:
+  * min_upper_shadow_pct: حداقل درصد upper shadow از range (default: 50%)
+  * max_lower_shadow_pct: حداکثر درصد lower shadow از range (default: 20%)
+  * max_body_pct: حداکثر درصد body از range (default: 30%)
+  * max_body_position: موقعیت body در پایین (default: 0.4)
+
 Version: 1.2.2 (2025-10-24)
 - رفع ادامه مشکل threshold - max_lower_shadow: 0.5 → 1.0
 - با این تغییر، Shooting Star می‌تواند lower shadow تا 1x body داشته باشد
@@ -26,7 +36,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.2.2"
+SHOOTING_STAR_PATTERN_VERSION = "1.3.0"
 
 import talib
 import pandas as pd
@@ -43,23 +53,25 @@ class ShootingStarPattern(BasePattern):
     Characteristics:
     - Bearish reversal pattern (opposite of Hammer)
     - Small body at bottom of candle
-    - Long upper shadow (at least 2x body)
-    - Little to no lower shadow
+    - Long upper shadow (at least 50% of full range)
+    - Little to no lower shadow (max 20% of full range)
     - Best when appears after uptrend
 
     Strength: 2/3 (Medium-Strong)
 
-    Configurable Thresholds:
-    - min_upper_shadow_ratio: حداقل نسبت upper shadow به body (default: 1.5)
-    - max_lower_shadow_ratio: حداکثر نسبت lower shadow به body (default: 1.0)
-    - max_body_position: حداکثر موقعیت body در range (default: 0.4 = bottom 40%)
+    Configurable Thresholds (all relative to full candle range):
+    - min_upper_shadow_pct: حداقل درصد upper shadow (default: 0.5 = 50%)
+    - max_lower_shadow_pct: حداکثر درصد lower shadow (default: 0.2 = 20%)
+    - max_body_pct: حداکثر درصد body (default: 0.3 = 30%)
+    - max_body_position: حداکثر موقعیت body (default: 0.4 = bottom 40%)
     """
 
     def __init__(
         self,
         config: Dict[str, Any] = None,
-        min_upper_shadow_ratio: float = None,
-        max_lower_shadow_ratio: float = None,
+        min_upper_shadow_pct: float = None,
+        max_lower_shadow_pct: float = None,
+        max_body_pct: float = None,
         max_body_position: float = None
     ):
         """
@@ -67,23 +79,30 @@ class ShootingStarPattern(BasePattern):
 
         Args:
             config: Configuration dictionary
-            min_upper_shadow_ratio: حداقل نسبت upper shadow/body (default: 1.5)
-            max_lower_shadow_ratio: حداکثر نسبت lower shadow/body (default: 1.0)
+            min_upper_shadow_pct: حداقل درصد upper shadow از range (default: 0.5 = 50%)
+            max_lower_shadow_pct: حداکثر درصد lower shadow از range (default: 0.2 = 20%)
+            max_body_pct: حداکثر درصد body از range (default: 0.3 = 30%)
             max_body_position: حداکثر موقعیت body (0.4 = bottom 40%)
         """
         super().__init__(config)
 
-        # تعیین thresholds از مصادر مختلف
-        self.min_upper_shadow_ratio = (
-            min_upper_shadow_ratio
-            if min_upper_shadow_ratio is not None
-            else config.get('shooting_star_min_upper_shadow_ratio', 1.5) if config else 1.5
+        # تعیین thresholds از مصادر مختلف - همه نسبت به full range
+        self.min_upper_shadow_pct = (
+            min_upper_shadow_pct
+            if min_upper_shadow_pct is not None
+            else config.get('shooting_star_min_upper_shadow_pct', 0.5) if config else 0.5
         )
 
-        self.max_lower_shadow_ratio = (
-            max_lower_shadow_ratio
-            if max_lower_shadow_ratio is not None
-            else config.get('shooting_star_max_lower_shadow_ratio', 1.0) if config else 1.0
+        self.max_lower_shadow_pct = (
+            max_lower_shadow_pct
+            if max_lower_shadow_pct is not None
+            else config.get('shooting_star_max_lower_shadow_pct', 0.2) if config else 0.2
+        )
+
+        self.max_body_pct = (
+            max_body_pct
+            if max_body_pct is not None
+            else config.get('shooting_star_max_body_pct', 0.3) if config else 0.3
         )
 
         self.max_body_position = (
@@ -116,12 +135,13 @@ class ShootingStarPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Shooting Star pattern using custom thresholds.
+        Detect Shooting Star pattern using range-based thresholds.
 
-        شرایط Shooting Star:
-        1. Upper shadow >= min_upper_shadow_ratio * body
-        2. Lower shadow <= max_lower_shadow_ratio * body
-        3. Body position <= max_body_position (در پایین کندل)
+        شرایط Shooting Star (همه نسبت به full range):
+        1. Upper shadow >= min_upper_shadow_pct از range (مثلاً 50%)
+        2. Lower shadow <= max_lower_shadow_pct از range (مثلاً 20%)
+        3. Body size <= max_body_pct از range (مثلاً 30%)
+        4. Body position <= max_body_position (در پایین کندل)
         """
         if not self._validate_dataframe(df):
             return False
@@ -143,20 +163,24 @@ class ShootingStarPattern(BasePattern):
             if full_range == 0:
                 return False
 
-            # برای جلوگیری از division by zero در body_size
-            body_for_ratio = max(body_size, full_range * 0.01)
+            # محاسبه درصدها نسبت به full range
+            upper_shadow_pct = upper_shadow / full_range
+            lower_shadow_pct = lower_shadow / full_range
+            body_pct = body_size / full_range
 
-            # شرط 1: Upper shadow باید بلند باشد
-            upper_shadow_ratio = upper_shadow / body_for_ratio
-            if upper_shadow_ratio < self.min_upper_shadow_ratio:
+            # شرط 1: Upper shadow باید بلند باشد (حداقل 50% از range)
+            if upper_shadow_pct < self.min_upper_shadow_pct:
                 return False
 
-            # شرط 2: Lower shadow باید کوچک باشد
-            lower_shadow_ratio = lower_shadow / body_for_ratio
-            if lower_shadow_ratio > self.max_lower_shadow_ratio:
+            # شرط 2: Lower shadow باید کوچک باشد (حداکثر 20% از range)
+            if lower_shadow_pct > self.max_lower_shadow_pct:
                 return False
 
-            # شرط 3: Body باید در پایین کندل باشد
+            # شرط 3: Body باید کوچک باشد (حداکثر 30% از range)
+            if body_pct > self.max_body_pct:
+                return False
+
+            # شرط 4: Body باید در پایین کندل باشد
             body_bottom = min(open_price, close)
             body_position = (body_bottom - low) / full_range
             if body_position > self.max_body_position:
@@ -178,9 +202,9 @@ class ShootingStarPattern(BasePattern):
         - context (uptrend یا نه)
 
         Shooting Star Types:
-        - Perfect: همه شرایط ایده‌آل (upper_shadow >= 3x body, no lower shadow)
-        - Strong: شرایط خوب (upper_shadow >= 2.5x body)
-        - Standard: شرایط استاندارد (upper_shadow >= 2x body)
+        - Perfect: همه شرایط ایده‌آل (upper_shadow >= 70%, lower_shadow <= 5%)
+        - Strong: شرایط خوب (upper_shadow >= 60%, lower_shadow <= 10%)
+        - Standard: شرایط استاندارد (upper_shadow >= 50%, lower_shadow <= 20%)
         """
         open_price = candle['open']
         high = candle['high']
@@ -196,17 +220,18 @@ class ShootingStarPattern(BasePattern):
         if full_range == 0:
             return self._default_quality_metrics()
 
-        body_for_ratio = max(body_size, full_range * 0.01)
+        # محاسبه درصدها نسبت به full range
+        upper_shadow_pct = upper_shadow / full_range
+        lower_shadow_pct = lower_shadow / full_range
+        body_size_pct = body_size / full_range
 
         # 1. Upper Shadow Quality (0-100)
-        # هرچه بلندتر، بهتر
-        upper_shadow_ratio = upper_shadow / body_for_ratio
-        upper_shadow_score = min(100, (upper_shadow_ratio / 4.0) * 100)
+        # هرچه بلندتر، بهتر (0.5 → 50 points, 1.0 → 100 points)
+        upper_shadow_score = min(100, upper_shadow_pct * 100 * 2)
 
         # 2. Lower Shadow Quality (0-100)
-        # هرچه کوچکتر، بهتر
-        lower_shadow_ratio = lower_shadow / body_for_ratio
-        lower_shadow_score = max(0, 100 - (lower_shadow_ratio * 100))
+        # هرچه کوچکتر، بهتر (0.0 → 100 points, 0.2 → 0 points)
+        lower_shadow_score = max(0, 100 - (lower_shadow_pct * 500))
 
         # 3. Body Position Quality (0-100)
         # body باید در پایین باشد
@@ -216,9 +241,8 @@ class ShootingStarPattern(BasePattern):
         body_position_score = (1.0 - body_position) * 100
 
         # 4. Body Size Quality (0-100)
-        # body نباید خیلی بزرگ باشد
-        body_size_ratio = body_size / full_range
-        body_size_score = max(0, 100 - (body_size_ratio * 100))
+        # body نباید خیلی بزرگ باشد (0.0 → 100 points, 0.3 → 0 points)
+        body_size_score = max(0, 100 - (body_size_pct * 333))
 
         # 5. Overall Quality (weighted average)
         overall_quality = (
@@ -233,8 +257,8 @@ class ShootingStarPattern(BasePattern):
 
         # 7. Shooting Star Type Detection
         shooting_star_type = self._detect_shooting_star_type(
-            upper_shadow_ratio,
-            lower_shadow_ratio,
+            upper_shadow_pct,
+            lower_shadow_pct,
             body_position
         )
 
@@ -253,31 +277,31 @@ class ShootingStarPattern(BasePattern):
             'upper_shadow': float(upper_shadow),
             'lower_shadow': float(lower_shadow),
             'full_range': float(full_range),
-            'upper_shadow_ratio': float(upper_shadow_ratio),
-            'lower_shadow_ratio': float(lower_shadow_ratio),
+            'upper_shadow_pct': float(upper_shadow_pct),
+            'lower_shadow_pct': float(lower_shadow_pct),
             'body_position': float(body_position),
-            'body_size_ratio': float(body_size_ratio),
+            'body_size_pct': float(body_size_pct),
             'shooting_star_type': shooting_star_type,
             'is_after_uptrend': context_score > 50
         }
 
     def _detect_shooting_star_type(
         self,
-        upper_shadow_ratio: float,
-        lower_shadow_ratio: float,
+        upper_shadow_pct: float,
+        lower_shadow_pct: float,
         body_position: float
     ) -> str:
-        """تشخیص نوع Shooting Star بر اساس معیارها."""
+        """تشخیص نوع Shooting Star بر اساس معیارها (percentage-based)."""
 
         # Perfect Shooting Star: شرایط ایده‌آل
-        if (upper_shadow_ratio >= 3.0 and
-            lower_shadow_ratio <= 0.05 and
+        if (upper_shadow_pct >= 0.70 and
+            lower_shadow_pct <= 0.05 and
             body_position <= 0.20):
             return "Perfect"
 
         # Strong Shooting Star: شرایط خوب
-        if (upper_shadow_ratio >= 2.5 and
-            lower_shadow_ratio <= 0.1 and
+        if (upper_shadow_pct >= 0.60 and
+            lower_shadow_pct <= 0.10 and
             body_position <= 0.30):
             return "Strong"
 
@@ -344,10 +368,10 @@ class ShootingStarPattern(BasePattern):
             'upper_shadow': 0.0,
             'lower_shadow': 0.0,
             'full_range': 0.0,
-            'upper_shadow_ratio': 0.0,
-            'lower_shadow_ratio': 0.0,
+            'upper_shadow_pct': 0.0,
+            'lower_shadow_pct': 0.0,
             'body_position': 0.0,
-            'body_size_ratio': 0.0,
+            'body_size_pct': 0.0,
             'shooting_star_type': 'Unknown',
             'is_after_uptrend': False
         }
@@ -382,8 +406,9 @@ class ShootingStarPattern(BasePattern):
                 'metadata': {
                     **quality_metrics,
                     'thresholds': {
-                        'min_upper_shadow_ratio': float(self.min_upper_shadow_ratio),
-                        'max_lower_shadow_ratio': float(self.max_lower_shadow_ratio),
+                        'min_upper_shadow_pct': float(self.min_upper_shadow_pct),
+                        'max_lower_shadow_pct': float(self.max_lower_shadow_pct),
+                        'max_body_pct': float(self.max_body_pct),
                         'max_body_position': float(self.max_body_position)
                     },
                     'detector_version': SHOOTING_STAR_PATTERN_VERSION,

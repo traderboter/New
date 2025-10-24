@@ -2,12 +2,16 @@
 Version information for Signal Generation system
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __version_date__ = "2025-10-24"
 __version_info__ = {
     "version": __version__,
     "date": __version_date__,
     "changes": [
+        "v1.2.2 (2025-10-24): رفع ادامه مشکل Shooting Star - max_lower_shadow 0.5→1.0 🔧",
+        "  - با debug test متوجه شدیم threshold 0.5 هنوز خیلی سخت است",
+        "  - اضافه کردن debug_shooting_star.py برای تست با کندل‌های مصنوعی",
+        "",
         "v1.2.1 (2025-10-24): رفع مشکل threshold های خیلی سخت در Shooting Star 🔧",
         "  - تغییر default thresholds: min_upper_shadow 2.0→1.5, max_lower_shadow 0.1→0.5, max_body_position 0.33→0.4",
         "  - مشابه رفع مشکل اولیه Doji که threshold های TA-Lib خیلی سخت بود",

@@ -4,6 +4,10 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern with configurable thresholds.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 1.2.2 (2025-10-24)
+- رفع ادامه مشکل threshold - max_lower_shadow: 0.5 → 1.0
+- با این تغییر، Shooting Star می‌تواند lower shadow تا 1x body داشته باشد
+
 Version: 1.2.1 (2025-10-24)
 - رفع مشکل threshold های خیلی سخت (relaxed defaults)
 - min_upper_shadow: 2.0 → 1.5
@@ -22,7 +26,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.2.1"
+SHOOTING_STAR_PATTERN_VERSION = "1.2.2"
 
 import talib
 import pandas as pd
@@ -47,7 +51,7 @@ class ShootingStarPattern(BasePattern):
 
     Configurable Thresholds:
     - min_upper_shadow_ratio: حداقل نسبت upper shadow به body (default: 1.5)
-    - max_lower_shadow_ratio: حداکثر نسبت lower shadow به body (default: 0.5)
+    - max_lower_shadow_ratio: حداکثر نسبت lower shadow به body (default: 1.0)
     - max_body_position: حداکثر موقعیت body در range (default: 0.4 = bottom 40%)
     """
 
@@ -64,7 +68,7 @@ class ShootingStarPattern(BasePattern):
         Args:
             config: Configuration dictionary
             min_upper_shadow_ratio: حداقل نسبت upper shadow/body (default: 1.5)
-            max_lower_shadow_ratio: حداکثر نسبت lower shadow/body (default: 0.5)
+            max_lower_shadow_ratio: حداکثر نسبت lower shadow/body (default: 1.0)
             max_body_position: حداکثر موقعیت body (0.4 = bottom 40%)
         """
         super().__init__(config)
@@ -79,7 +83,7 @@ class ShootingStarPattern(BasePattern):
         self.max_lower_shadow_ratio = (
             max_lower_shadow_ratio
             if max_lower_shadow_ratio is not None
-            else config.get('shooting_star_max_lower_shadow_ratio', 0.5) if config else 0.5
+            else config.get('shooting_star_max_lower_shadow_ratio', 1.0) if config else 1.0
         )
 
         self.max_body_position = (

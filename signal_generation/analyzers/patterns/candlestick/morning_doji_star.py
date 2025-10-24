@@ -79,9 +79,14 @@ class MorningDojiStarPattern(BasePattern):
         first_body = abs(first_candle['close'] - first_candle['open'])
         doji_body = abs(doji_candle['close'] - doji_candle['open'])
         last_body = abs(last_candle['close'] - last_candle['open'])
+        first_full_range = first_candle['high'] - first_candle['low']
+        doji_full_range = doji_candle['high'] - doji_candle['low']
+        last_full_range = last_candle['high'] - last_candle['low']
 
         # Doji should be very small
-        doji_ratio = doji_body / first_body if first_body > 0 else 0
+        # Use safe division: minimum threshold is 30% of candle's full range
+        safe_first_body = max(first_body, first_full_range * 0.3) if first_full_range > 0 else 0.0001
+        doji_ratio = doji_body / safe_first_body if safe_first_body > 0 else 0
 
         return {
             'location': 'current',
@@ -91,6 +96,9 @@ class MorningDojiStarPattern(BasePattern):
                 'first_body': float(first_body),
                 'doji_body': float(doji_body),
                 'last_body': float(last_body),
+                'first_full_range': float(first_full_range),
+                'doji_full_range': float(doji_full_range),
+                'last_full_range': float(last_full_range),
                 'doji_ratio': float(doji_ratio)
             }
         }

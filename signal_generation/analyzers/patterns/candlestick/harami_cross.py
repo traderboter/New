@@ -98,9 +98,13 @@ class HaramiCrossPattern(BasePattern):
 
         prev_body = abs(prev_candle['close'] - prev_candle['open'])
         curr_body = abs(curr_candle['close'] - curr_candle['open'])
+        prev_full_range = prev_candle['high'] - prev_candle['low']
+        curr_full_range = curr_candle['high'] - curr_candle['low']
 
         # Second body should be very small (doji)
-        doji_ratio = curr_body / prev_body if prev_body > 0 else 0
+        # Use safe division: minimum threshold is 30% of candle's full range
+        safe_prev_body = max(prev_body, prev_full_range * 0.3) if prev_full_range > 0 else 0.0001
+        doji_ratio = curr_body / safe_prev_body if safe_prev_body > 0 else 0
 
         return {
             'location': 'current',
@@ -109,6 +113,8 @@ class HaramiCrossPattern(BasePattern):
             'metadata': {
                 'prev_body': float(prev_body),
                 'doji_body': float(curr_body),
+                'prev_full_range': float(prev_full_range),
+                'curr_full_range': float(curr_full_range),
                 'doji_ratio': float(doji_ratio)
             }
         }

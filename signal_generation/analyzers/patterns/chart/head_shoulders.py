@@ -108,7 +108,9 @@ class HeadShouldersPattern(BasePattern):
                 return False
 
             # Check if shoulders are similar height
-            shoulder_diff = abs(peak_heights[0] - peak_heights[2]) / peak_heights[0]
+            # Use safe division to avoid division by zero
+            safe_shoulder = max(peak_heights[0], 0.0001)
+            shoulder_diff = abs(peak_heights[0] - peak_heights[2]) / safe_shoulder
 
             return shoulder_diff < self.shoulder_tolerance
 
@@ -137,7 +139,9 @@ class HeadShouldersPattern(BasePattern):
                 return False
 
             # Check if shoulders are similar depth
-            shoulder_diff = abs(trough_depths[0] - trough_depths[2]) / trough_depths[0]
+            # Use safe division to avoid division by zero
+            safe_shoulder = max(trough_depths[0], 0.0001)
+            shoulder_diff = abs(trough_depths[0] - trough_depths[2]) / safe_shoulder
 
             return shoulder_diff < self.shoulder_tolerance
 
@@ -179,10 +183,13 @@ class HeadShouldersPattern(BasePattern):
                 peak_heights = highs[last_three]
 
                 # Calculate shoulder symmetry
-                shoulder_symmetry = 1.0 - (abs(peak_heights[0] - peak_heights[2]) / peak_heights[0])
+                # Use safe division to avoid division by zero
+                safe_shoulder = max(peak_heights[0], 0.0001)
+                shoulder_symmetry = 1.0 - (abs(peak_heights[0] - peak_heights[2]) / safe_shoulder)
 
                 # Calculate head prominence
-                head_prominence = (peak_heights[1] - max(peak_heights[0], peak_heights[2])) / peak_heights[1]
+                safe_head = max(peak_heights[1], 0.0001)
+                head_prominence = (peak_heights[1] - max(peak_heights[0], peak_heights[2])) / safe_head
 
                 return {
                     'location': 'forming',
@@ -216,10 +223,13 @@ class HeadShouldersPattern(BasePattern):
                 trough_depths = lows[last_three]
 
                 # Calculate shoulder symmetry
-                shoulder_symmetry = 1.0 - (abs(trough_depths[0] - trough_depths[2]) / trough_depths[0])
+                # Use safe division to avoid division by zero
+                safe_shoulder = max(trough_depths[0], 0.0001)
+                shoulder_symmetry = 1.0 - (abs(trough_depths[0] - trough_depths[2]) / safe_shoulder)
 
                 # Calculate head prominence
-                head_prominence = (min(trough_depths[0], trough_depths[2]) - trough_depths[1]) / trough_depths[1]
+                safe_head = max(trough_depths[1], 0.0001)
+                head_prominence = (min(trough_depths[0], trough_depths[2]) - trough_depths[1]) / safe_head
 
                 return {
                     'location': 'forming',

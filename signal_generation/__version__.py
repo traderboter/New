@@ -2,12 +2,16 @@
 Version information for Signal Generation system
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __version_date__ = "2025-10-24"
 __version_info__ = {
     "version": __version__,
     "date": __version_date__,
     "changes": [
+        "v1.2.1 (2025-10-24): رفع مشکل threshold های خیلی سخت در Shooting Star 🔧",
+        "  - تغییر default thresholds: min_upper_shadow 2.0→1.5, max_lower_shadow 0.1→0.5, max_body_position 0.33→0.4",
+        "  - مشابه رفع مشکل اولیه Doji که threshold های TA-Lib خیلی سخت بود",
+        "",
         "v1.2.0 (2025-10-24): اضافه کردن سیستم Quality Scoring جامع برای Doji, Hammer, Shooting Star 🎯",
         "  - Doji: Quality scoring (0-100), Doji type detection (Standard/Dragonfly/Gravestone/Long-legged)",
         "  - Hammer: Quality scoring با context analysis (downtrend detection), Hammer types (Perfect/Strong/Standard)",

@@ -8,7 +8,7 @@ Pattern Testing Framework - تست تک‌تک الگوها روی داده‌ه
     python test_pattern.py --pattern doji --data-dir historical/BTC-USDT
 """
 
-TEST_PATTERN_VERSION = "1.2.0"
+TEST_PATTERN_VERSION = "1.2.1"
 TEST_PATTERN_DATE = "2025-10-24"
 
 import sys

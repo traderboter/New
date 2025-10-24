@@ -97,27 +97,29 @@ signal_generation/
 - [x] پیاده‌سازی `pattern_orchestrator.py`
 - [x] پیاده‌سازی `indicator_orchestrator.py`
 
-### Phase 5: استخراج الگوهای Candlestick - Batch 1 ✅
-- [x] `hammer.py`
-- [x] `inverted_hammer.py`
-- [x] `engulfing.py`
-- [x] `morning_star.py`
+### Phase 5: استخراج الگوهای Candlestick ✅
+- [x] `hammer.py` - الگوی چکش
+- [x] `inverted_hammer.py` - چکش وارونه
+- [x] `engulfing.py` - الگوی پوشش
+- [x] `morning_star.py` - ستاره صبحگاهی
+- [x] `piercing_line.py` - خط نافذ
+- [x] `three_white_soldiers.py` - سه سرباز سفید
+- [x] `morning_doji_star.py` - ستاره دوجی صبحگاهی
+- [x] `shooting_star.py` - ستاره دنباله‌دار
+- [x] `hanging_man.py` - مرد به دار آویخته
+- [x] `evening_star.py` - ستاره عصرگاهی
+- [x] `dark_cloud_cover.py` - پوشش ابر تیره
+- [x] `three_black_crows.py` - سه کلاغ سیاه
+- [x] `evening_doji_star.py` - ستاره دوجی عصرگاهی
+- [x] `doji.py` - دوجی
+- [x] `harami.py` - هارامی
+- [x] `harami_cross.py` - هارامی متقاطع
 
 ---
 
 ## 🔄 مراحل در حال انجام
 
-### Phase 5: استخراج الگوهای Candlestick - Batch 2 (12 الگو باقی‌مانده)
-- [ ] `piercing_line.py`
-- [ ] `three_white_soldiers.py`
-- [ ] `morning_doji_star.py`
-- [ ] `shooting_star.py`
-- [ ] `hanging_man.py`
-- [ ] `evening_star.py`
-- [ ] `dark_cloud_cover.py`
-- [ ] `three_black_crows.py`
-- [ ] `evening_doji_star.py`
-- [ ] `doji.py`
+### Phase 6: استخراج الگوهای Chart (4 الگو)
 - [ ] `harami.py`
 - [ ] `harami_cross.py`
 
@@ -165,13 +167,13 @@ signal_generation/
 | Phase 2: ساختار پایه | 5 | 5 | 0 | 100% ✅ |
 | Phase 3: کلاس‌های پایه | 2 | 2 | 0 | 100% ✅ |
 | Phase 4: Orchestrators | 2 | 2 | 0 | 100% ✅ |
-| Phase 5: الگوهای Candlestick | 16 | 4 | 12 | 25% 🔄 |
+| Phase 5: الگوهای Candlestick | 16 | 16 | 0 | 100% ✅ |
 | Phase 6: الگوهای Chart | 4 | 0 | 4 | 0% |
 | Phase 7: اندیکاتورها | 8 | 0 | 8 | 0% |
 | Phase 8: یکپارچه‌سازی | 3 | 0 | 3 | 0% |
 | Phase 9: تست | 6 | 0 | 6 | 0% |
 | Phase 10: مستندات | 3 | 0 | 3 | 0% |
-| **جمع کل** | **54** | **18** | **36** | **33.3%** |
+| **جمع کل** | **54** | **30** | **24** | **55.6%** |
 
 ---
 
@@ -251,11 +253,17 @@ signal_generation/
 ## 📝 یادداشت‌ها
 
 ### تاریخچه تغییرات:
+- **2025-10-24 15:00**: پیشرفت عالی (55.6%) - Phase 5 تکمیل شد! 🎉
+  - ✅ تکمیل تمام 16 الگوی candlestick
+  - ✅ هر الگو در فایل مستقل با کلاس مخصوص
+  - ✅ به‌روزرسانی __init__.py با تمام imports
+  - 📁 فایل‌های جدید: 12 الگوی candlestick
+
 - **2025-10-24 14:30**: پیشرفت قابل توجه (33.3%)
   - ✅ ایجاد کامل ساختار پوشه‌ها
   - ✅ پیاده‌سازی کلاس‌های پایه (BasePattern, BaseIndicator)
   - ✅ پیاده‌سازی Orchestrators (PatternOrchestrator, IndicatorOrchestrator)
-  - ✅ پیاده‌سازی 4 الگوی candlestick (Hammer, Inverted Hammer, Engulfing, Morning Star)
+  - ✅ پیاده‌سازی 4 الگوی candlestick اولیه
 
 - **2025-10-24 12:00**: شروع پروژه refactoring
   - ایجاد فایل REFACTORING_PROGRESS.md

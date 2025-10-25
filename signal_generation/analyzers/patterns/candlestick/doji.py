@@ -4,6 +4,14 @@ Doji Pattern Detector
 Detects Doji candlestick pattern with configurable threshold.
 Doji is a reversal pattern indicating indecision.
 
+Version: 3.0.0 (2025-10-25) - Recency Scoring Implementation
+- ✨ NEW: Multi-candle lookback detection (checks last N candles)
+- ✨ NEW: Recency-based scoring (recent patterns score higher)
+- ✨ NEW: Configurable lookback_window and recency_multipliers
+- 🔄 Detection now checks last 10 candles by default (not just current)
+- 📊 Score adjusts based on pattern age (0-10 candles ago)
+- 🔬 Based on research: min 11 candles required (10 lookback + 1 current)
+
 Version: 1.2.0 (2025-10-24)
 - جایگزینی TA-Lib با detector دستی
 - threshold قابل تنظیم (default: 0.10)
@@ -16,7 +24,7 @@ Quality Score:
 - مثال: body_ratio=0.01, threshold=0.10 → quality=90%
 """
 
-DOJI_PATTERN_VERSION = "1.2.0"
+DOJI_PATTERN_VERSION = "3.0.0"
 
 import talib
 import pandas as pd
@@ -90,31 +98,61 @@ class DojiPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Doji pattern using custom threshold.
+        Detect Doji pattern in last N candles using custom threshold.
+
+        NEW in v3.0.0: Multi-candle lookback detection
+        - Checks last N candles (lookback_window, default: 10)
+        - Stores which candle has the pattern (_last_detection_candles_ago)
+        - Enables recency-based scoring
 
         A candle is considered a Doji if:
         1. Body size is very small relative to the full range
         2. body_ratio = |close - open| / (high - low) < threshold
+
+        Based on research:
+        - Minimum 11 candles required (10 lookback + 1 current)
         """
         if not self._validate_dataframe(df):
             return False
 
+        # Reset detection cache
+        self._last_detection_candles_ago = None
+
+        # Based on research: need minimum 11 candles
+        if len(df) < 11:
+            return False
+
         try:
-            last_candle = df.iloc[-1]
+            # NEW v3.0.0: Check last N candles (lookback_window)
+            lookback = min(self.lookback_window, len(df))
 
-            # محاسبه اندازه body و range کامل
-            body_size = abs(last_candle[close_col] - last_candle[open_col])
-            full_range = last_candle[high_col] - last_candle[low_col]
+            for i in range(lookback):
+                # Check from newest to oldest
+                # i=0: last candle (df.iloc[-1])
+                # i=1: second to last (df.iloc[-2])
+                # etc.
+                idx = -(i + 1)
+                candle = df.iloc[idx]
 
-            # جلوگیری از تقسیم بر صفر
-            if full_range == 0:
-                return False
+                # محاسبه اندازه body و range کامل
+                body_size = abs(candle[close_col] - candle[open_col])
+                full_range = candle[high_col] - candle[low_col]
 
-            # محاسبه نسبت body به range
-            body_ratio = body_size / full_range
+                # جلوگیری از تقسیم بر صفر
+                if full_range == 0:
+                    continue
 
-            # تشخیص Doji بر اساس threshold
-            return body_ratio <= self.body_ratio_threshold
+                # محاسبه نسبت body به range
+                body_ratio = body_size / full_range
+
+                # تشخیص Doji بر اساس threshold
+                if body_ratio <= self.body_ratio_threshold:
+                    # Pattern found! Store position
+                    self._last_detection_candles_ago = i
+                    return True
+
+            # Not found in last N candles
+            return False
 
         except Exception as e:
             return False
@@ -246,34 +284,74 @@ class DojiPattern(BasePattern):
         """
         Get additional details about Doji detection with quality metrics.
 
+        NEW in v3.0.0: Includes recency information
+        - candles_ago: Which candle has the pattern (0-10)
+        - recency_multiplier: Score multiplier based on age
+        - Adjusted confidence based on recency
+
         Returns:
             Dictionary containing:
-            - confidence: Trading confidence (0-1)
-            - metadata: Detailed quality metrics
+            - location: 'current' or 'recent'
+            - candles_ago: 0-10
+            - recency_multiplier: based on config
+            - confidence: Trading confidence (0-1), adjusted by recency
+            - metadata: Detailed quality metrics + recency info
         """
-        last_candle = df.iloc[-1]
+        if len(df) == 0:
+            return super()._get_detection_details(df)
 
-        # محاسبه معیارهای کیفیت
-        quality_metrics = self._calculate_quality_metrics(last_candle)
+        try:
+            # Get detection position (set by detect())
+            candles_ago = getattr(self, '_last_detection_candles_ago', 0)
+            if candles_ago is None:
+                candles_ago = 0
 
-        # محاسبه confidence بر اساس overall_quality
-        # overall_quality: 0-100 → confidence: 0.3-0.95
-        confidence = 0.3 + (quality_metrics['overall_quality'] / 100) * 0.65
-        confidence = max(0.3, min(0.95, confidence))
+            # Get recency multiplier
+            if candles_ago < len(self.recency_multipliers):
+                recency_multiplier = self.recency_multipliers[candles_ago]
+            else:
+                recency_multiplier = 0.0  # Too old
 
-        return {
-            'location': 'current',
-            'candles_ago': 0,
-            'confidence': confidence,
-            'metadata': {
-                **quality_metrics,
-                'threshold': float(self.body_ratio_threshold),
-                'detector_version': DOJI_PATTERN_VERSION,
-                'price_info': {
-                    'open': float(last_candle['open']),
-                    'high': float(last_candle['high']),
-                    'low': float(last_candle['low']),
-                    'close': float(last_candle['close'])
+            # Get the candle where pattern was detected
+            candle_idx = -(candles_ago + 1)
+            detected_candle = df.iloc[candle_idx]
+
+            # محاسبه معیارهای کیفیت
+            quality_metrics = self._calculate_quality_metrics(detected_candle)
+
+            # محاسبه base confidence بر اساس overall_quality
+            # overall_quality: 0-100 → base_confidence: 0.3-0.95
+            base_confidence = 0.3 + (quality_metrics['overall_quality'] / 100) * 0.65
+            base_confidence = max(0.3, min(0.95, base_confidence))
+
+            # NEW v3.0.0: Adjust confidence with recency multiplier
+            # Recent patterns → higher confidence
+            # Older patterns → lower confidence
+            adjusted_confidence = min(base_confidence * recency_multiplier, 0.95)
+
+            return {
+                'location': 'current' if candles_ago == 0 else 'recent',
+                'candles_ago': candles_ago,
+                'recency_multiplier': recency_multiplier,
+                'confidence': adjusted_confidence,
+                'metadata': {
+                    **quality_metrics,
+                    'threshold': float(self.body_ratio_threshold),
+                    'detector_version': DOJI_PATTERN_VERSION,
+                    'price_info': {
+                        'open': float(detected_candle['open']),
+                        'high': float(detected_candle['high']),
+                        'low': float(detected_candle['low']),
+                        'close': float(detected_candle['close'])
+                    },
+                    'recency_info': {
+                        'candles_ago': candles_ago,
+                        'multiplier': recency_multiplier,
+                        'lookback_window': self.lookback_window,
+                        'base_confidence': base_confidence,
+                        'adjusted_confidence': adjusted_confidence
+                    }
                 }
             }
-        }
+        except Exception:
+            return super()._get_detection_details(df)

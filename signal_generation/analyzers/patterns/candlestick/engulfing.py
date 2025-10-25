@@ -4,6 +4,13 @@ Engulfing Pattern Detector
 Detects Bullish and Bearish Engulfing candlestick patterns using TALib.
 Engulfing patterns are strong reversal patterns.
 
+Version: 3.0.0 (2025-10-25) - Recency Scoring Implementation
+- ✨ NEW: Multi-candle lookback detection (checks last N candles)
+- ✨ NEW: Recency-based scoring (recent patterns score higher)
+- ✨ NEW: Configurable lookback_window and recency_multipliers
+- 🔄 Detection now checks last 2 candles by default (not just current)
+- 📊 Score adjusts based on pattern age (0-2 candles ago)
+
 Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
 - 🔄 BREAKING: Fix TA-Lib integration (3+ candles required)
 - 🔬 بر اساس تحقیقات در talib-test/:
@@ -13,7 +20,7 @@ Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
 - ✅ بیشترین detection rate در بین همه الگوها!
 """
 
-ENGULFING_PATTERN_VERSION = "2.0.0"
+ENGULFING_PATTERN_VERSION = "3.0.0"
 
 import talib
 import pandas as pd
@@ -81,7 +88,12 @@ class EngulfingPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Engulfing pattern using TA-Lib CDLENGULFING.
+        Detect Engulfing pattern in last N candles using TA-Lib CDLENGULFING.
+
+        NEW in v3.0.0: Multi-candle lookback detection
+        - Checks last N candles (lookback_window, default: 2)
+        - Stores which candle has the pattern (_last_detection_candles_ago)
+        - Enables recency-based scoring
 
         TA-Lib Requirements (based on research in talib-test/):
         1. Minimum 3 candles (2 previous + 1 current) - CRITICAL!
@@ -89,10 +101,13 @@ class EngulfingPattern(BasePattern):
         3. Detection rate: 16.26% (highest among all patterns!)
 
         Returns:
-            bool: True if Engulfing pattern detected on last candle
+            bool: True if Engulfing pattern detected in last N candles
         """
         if not self._validate_dataframe(df):
             return False
+
+        # Reset detection cache
+        self._last_detection_candles_ago = None
 
         # TA-Lib needs minimum 3 candles
         if len(df) < 3:
@@ -108,9 +123,24 @@ class EngulfingPattern(BasePattern):
                 df[close_col].values
             )
 
-            # Check last candle
-            # result values: +100 (bullish), -100 (bearish), 0 (no pattern)
-            return result[-1] != 0
+            # NEW v3.0.0: Check last N candles (lookback_window)
+            lookback = min(self.lookback_window, len(result))
+
+            for i in range(lookback):
+                # Check from newest to oldest
+                # i=0: last candle (result[-1])
+                # i=1: second to last (result[-2])
+                # etc.
+                idx = -(i + 1)
+
+                # result values: +100 (bullish), -100 (bearish), 0 (no pattern)
+                if result[idx] != 0:
+                    # Pattern found! Store position
+                    self._last_detection_candles_ago = i
+                    return True
+
+            # Not found in last N candles
+            return False
 
         except Exception as e:
             return False
@@ -135,21 +165,49 @@ class EngulfingPattern(BasePattern):
             return 'bullish'
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Get additional details about Engulfing detection."""
+        """
+        Get additional details about Engulfing detection with recency information.
+
+        NEW in v3.0.0: Includes recency information
+        - candles_ago: Which candle has the pattern (0-N)
+        - recency_multiplier: Score multiplier based on age
+        - Adjusted confidence based on recency
+
+        Returns:
+            Dictionary containing:
+            - location: 'current' or 'recent'
+            - candles_ago: 0-N
+            - recency_multiplier: based on config
+            - confidence: Trading confidence (0-1), adjusted by recency
+            - metadata: Detailed metrics + recency info
+        """
         # Validate minimum candles
         if len(df) < 2:
             return super()._get_detection_details(df)
 
         try:
-            # Get last two candles
-            prev_candle = df.iloc[-2]
-            curr_candle = df.iloc[-1]
+            # Get detection position (set by detect())
+            candles_ago = getattr(self, '_last_detection_candles_ago', 0)
+            if candles_ago is None:
+                candles_ago = 0
+
+            # Get recency multiplier
+            if candles_ago < len(self.recency_multipliers):
+                recency_multiplier = self.recency_multipliers[candles_ago]
+            else:
+                recency_multiplier = 0.0  # Too old
+
+            # Get the two candles where pattern was detected
+            # For Engulfing, we need the engulfing candle and the one before it
+            candle_idx = -(candles_ago + 1)
+            detected_candle = df.iloc[candle_idx]
+            prev_candle = df.iloc[candle_idx - 1]
 
             # Calculate body sizes
             prev_body = abs(prev_candle['close'] - prev_candle['open'])
-            curr_body = abs(curr_candle['close'] - curr_candle['open'])
+            curr_body = abs(detected_candle['close'] - detected_candle['open'])
             prev_full_range = prev_candle['high'] - prev_candle['low']
-            curr_full_range = curr_candle['high'] - curr_candle['low']
+            curr_full_range = detected_candle['high'] - detected_candle['low']
 
             # Engulfing ratio (how much bigger is current body)
             # Use safe division: minimum threshold is 30% of candle's full range
@@ -158,19 +216,36 @@ class EngulfingPattern(BasePattern):
 
             # Determine direction using TALib result
             result = self._get_talib_result(df)
-            direction = 'bullish' if len(result) > 0 and result[-1] > 0 else 'bearish'
+            if len(result) > candles_ago:
+                direction = 'bullish' if result[candle_idx] > 0 else 'bearish'
+            else:
+                direction = 'bullish'
+
+            # Calculate base confidence
+            base_confidence = min(0.75 + (engulfing_ratio / 10), 0.95)
+
+            # NEW v3.0.0: Adjust confidence with recency multiplier
+            adjusted_confidence = min(base_confidence * recency_multiplier, 0.95)
 
             return {
-                'location': 'current',
-                'candles_ago': 0,
-                'confidence': min(0.75 + (engulfing_ratio / 10), 0.95),
+                'location': 'current' if candles_ago == 0 else 'recent',
+                'candles_ago': candles_ago,
+                'recency_multiplier': recency_multiplier,
+                'confidence': adjusted_confidence,
                 'metadata': {
                     'prev_body_size': float(prev_body),
                     'curr_body_size': float(curr_body),
                     'prev_full_range': float(prev_full_range),
                     'curr_full_range': float(curr_full_range),
                     'engulfing_ratio': float(engulfing_ratio),
-                    'pattern_direction': direction
+                    'pattern_direction': direction,
+                    'recency_info': {
+                        'candles_ago': candles_ago,
+                        'multiplier': recency_multiplier,
+                        'lookback_window': self.lookback_window,
+                        'base_confidence': base_confidence,
+                        'adjusted_confidence': adjusted_confidence
+                    }
                 }
             }
         except Exception:

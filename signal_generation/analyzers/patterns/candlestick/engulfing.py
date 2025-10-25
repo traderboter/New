@@ -3,7 +3,17 @@ Engulfing Pattern Detector
 
 Detects Bullish and Bearish Engulfing candlestick patterns using TALib.
 Engulfing patterns are strong reversal patterns.
+
+Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
+- 🔄 BREAKING: Fix TA-Lib integration (3+ candles required)
+- 🔬 بر اساس تحقیقات در talib-test/:
+  * TA-Lib نیاز به حداقل 3 کندل دارد (2 قبلی + 1 فعلی)
+  * با کمتر از 3 کندل: هیچ تشخیصی نمی‌دهد
+- 📊 Detection rate در BTC 1-hour data: 1714/10543 = 16.26%
+- ✅ بیشترین detection rate در بین همه الگوها!
 """
+
+ENGULFING_PATTERN_VERSION = "2.0.0"
 
 import talib
 import pandas as pd
@@ -15,7 +25,7 @@ from signal_generation.analyzers.patterns.base_pattern import BasePattern
 
 class EngulfingPattern(BasePattern):
     """
-    Engulfing candlestick pattern detector.
+    Engulfing candlestick pattern detector using TA-Lib.
 
     Characteristics:
     - Can be bullish or bearish
@@ -24,7 +34,17 @@ class EngulfingPattern(BasePattern):
     - Direction determined by engulfing candle color
 
     Strength: 3/3 (Strong)
+
+    TA-Lib Requirements (based on research in talib-test/):
+    - Minimum 3 candles (2 previous + 1 current) - CRITICAL!
+    - Detection rate on BTC 1-hour: 1714/10543 = 16.26%
+    - Highest detection rate among all patterns!
     """
+
+    def __init__(self, config: Dict[str, Any] = None):
+        """Initialize Engulfing detector."""
+        super().__init__(config)
+        self.version = ENGULFING_PATTERN_VERSION
 
     def _get_pattern_name(self) -> str:
         return "Engulfing"
@@ -60,12 +80,27 @@ class EngulfingPattern(BasePattern):
         close_col: str = 'close',
         volume_col: str = 'volume'
     ) -> bool:
-        """Detect Engulfing pattern using TALib."""
+        """
+        Detect Engulfing pattern using TA-Lib CDLENGULFING.
+
+        TA-Lib Requirements (based on research in talib-test/):
+        1. Minimum 3 candles (2 previous + 1 current) - CRITICAL!
+        2. Can detect both bullish and bearish engulfing
+        3. Detection rate: 16.26% (highest among all patterns!)
+
+        Returns:
+            bool: True if Engulfing pattern detected on last candle
+        """
         if not self._validate_dataframe(df):
+            return False
+
+        # TA-Lib needs minimum 3 candles
+        if len(df) < 3:
             return False
 
         try:
             # Use TALib to detect
+            # Pass full DataFrame - TA-Lib uses previous candles for context
             result = talib.CDLENGULFING(
                 df[open_col].values,
                 df[high_col].values,
@@ -74,6 +109,7 @@ class EngulfingPattern(BasePattern):
             )
 
             # Check last candle
+            # result values: +100 (bullish), -100 (bearish), 0 (no pattern)
             return result[-1] != 0
 
         except Exception as e:

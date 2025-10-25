@@ -41,6 +41,19 @@ class BasePattern(ABC):
         self.direction = self._get_direction()
         self.base_strength = self._get_base_strength()
 
+        # Recency scoring parameters
+        pattern_name_lower = self.name.lower().replace(' ', '_')
+        pattern_config = self.config.get('patterns', {}).get(pattern_name_lower, {})
+
+        self.lookback_window = pattern_config.get('lookback_window', 5)
+        self.recency_multipliers = pattern_config.get(
+            'recency_multipliers',
+            [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]  # default
+        )
+
+        # Cache for last detection position
+        self._last_detection_candles_ago = None
+
         logger.debug(f"Pattern initialized: {self.name}")
 
     @abstractmethod
@@ -152,6 +165,7 @@ class BasePattern(ABC):
                 'timeframe': timeframe,
                 'location': detection_details.get('location', 'current'),
                 'candles_ago': detection_details.get('candles_ago', 0),
+                'recency_multiplier': detection_details.get('recency_multiplier', 1.0),
                 'confidence': detection_details.get('confidence', 0.5),
                 'metadata': detection_details.get('metadata', {})
             }
@@ -176,13 +190,31 @@ class BasePattern(ABC):
             df: DataFrame with OHLCV data
 
         Returns:
-            Dictionary with detection details
+            Dictionary with detection details including recency information
         """
+        # Get candles_ago (set by detect() method in subclasses)
+        candles_ago = getattr(self, '_last_detection_candles_ago', 0)
+        if candles_ago is None:
+            candles_ago = 0
+
+        # Get recency multiplier
+        if candles_ago < len(self.recency_multipliers):
+            recency_multiplier = self.recency_multipliers[candles_ago]
+        else:
+            recency_multiplier = 0.0  # Too old
+
         return {
-            'location': 'current',
-            'candles_ago': 0,
+            'location': 'current' if candles_ago == 0 else 'recent',
+            'candles_ago': candles_ago,
+            'recency_multiplier': recency_multiplier,
             'confidence': 0.7,
-            'metadata': {}
+            'metadata': {
+                'recency_info': {
+                    'candles_ago': candles_ago,
+                    'multiplier': recency_multiplier,
+                    'lookback_window': self.lookback_window
+                }
+            }
         }
 
     def _calculate_dynamic_strength(

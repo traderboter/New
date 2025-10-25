@@ -23,6 +23,7 @@ from pathlib import Path
 PATTERN_TO_TEST = "HAMMER"  # یا: ENGULFING, SHOOTINGSTAR, DOJI, ...
 
 PATTERN_INFO = {
+    # ✅ الگوهای تست شده قبلی
     "ENGULFING": {
         "name": "Engulfing",
         "talib_func": talib.CDLENGULFING,
@@ -46,6 +47,48 @@ PATTERN_INFO = {
     "INVERTEDHAMMER": {
         "name": "Inverted Hammer",
         "talib_func": talib.CDLINVERTEDHAMMER,
+    },
+
+    # 🆕 الگوهای جدید برای تست
+    "DARKCLOUDCOVER": {
+        "name": "Dark Cloud Cover",
+        "talib_func": talib.CDLDARKCLOUDCOVER,
+    },
+    "EVENINGSTAR": {
+        "name": "Evening Star",
+        "talib_func": talib.CDLEVENINGSTAR,
+    },
+    "EVENINGDOJISTAR": {
+        "name": "Evening Doji Star",
+        "talib_func": talib.CDLEVENINGDOJISTAR,
+    },
+    "HARAMI": {
+        "name": "Harami",
+        "talib_func": talib.CDLHARAMI,
+    },
+    "HARAMICROSS": {
+        "name": "Harami Cross",
+        "talib_func": talib.CDLHARAMICROSS,
+    },
+    "HANGINGMAN": {
+        "name": "Hanging Man",
+        "talib_func": talib.CDLHANGINGMAN,
+    },
+    "PIERCINGLINE": {
+        "name": "Piercing Line",
+        "talib_func": talib.CDLPIERCING,
+    },
+    "MORNINGDOJISTAR": {
+        "name": "Morning Doji Star",
+        "talib_func": talib.CDLMORNINGDOJISTAR,
+    },
+    "THREEWHITESOLDIERS": {
+        "name": "Three White Soldiers",
+        "talib_func": talib.CDL3WHITESOLDIERS,
+    },
+    "THREEBLACKCROWS": {
+        "name": "Three Black Crows",
+        "talib_func": talib.CDL3BLACKCROWS,
     },
 }
 

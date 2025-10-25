@@ -4,6 +4,13 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern using TA-Lib CDLSHOOTINGSTAR.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 3.0.0 (2025-10-25) - Recency Scoring Implementation
+- ✨ NEW: Multi-candle lookback detection (checks last N candles)
+- ✨ NEW: Recency-based scoring (recent patterns score higher)
+- ✨ NEW: Configurable lookback_window and recency_multipliers
+- 🔄 Detection now checks last 11 candles by default (not just current)
+- 📊 Score adjusts based on pattern age (0-11 candles ago)
+
 Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
 - 🔄 BREAKING: بازگشت به استفاده از TA-Lib CDLSHOOTINGSTAR
 - 🔬 بر اساس تحقیقات در talib-test/:
@@ -38,7 +45,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "2.0.0"
+SHOOTING_STAR_PATTERN_VERSION = "3.0.0"
 
 import talib
 import pandas as pd
@@ -168,7 +175,12 @@ class ShootingStarPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Shooting Star pattern using TA-Lib CDLSHOOTINGSTAR.
+        Detect Shooting Star pattern in last N candles using TA-Lib CDLSHOOTINGSTAR.
+
+        NEW in v3.0.0: Multi-candle lookback detection
+        - Checks last N candles (lookback_window, default: 11)
+        - Stores which candle has the pattern (_last_detection_candles_ago)
+        - Enables recency-based scoring
 
         TA-Lib Requirements (based on research in talib-test/):
         1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
@@ -176,6 +188,7 @@ class ShootingStarPattern(BasePattern):
         3. Does NOT check for uptrend context
 
         Our Additional Checks:
+        - Multi-candle lookback (NEW in v3.0.0)
         - Uptrend detection (if require_uptrend=True)
         - TA-Lib found 75/10543 = 0.71% patterns in BTC 1-hour data
 
@@ -188,6 +201,9 @@ class ShootingStarPattern(BasePattern):
         """
         if not self._validate_dataframe(df):
             return False
+
+        # Reset detection cache
+        self._last_detection_candles_ago = None
 
         # TA-Lib needs minimum 12 candles
         if len(df) < 12:
@@ -207,21 +223,34 @@ class ShootingStarPattern(BasePattern):
                 df_tail[close_col].values
             )
 
-            # Check if last candle is detected as Shooting Star
-            # pattern values: -100 (bearish signal), 0 (no pattern)
-            # Note: TA-Lib only detects bullish candles (close > open)
-            if pattern[-1] == 0:
-                return False
+            # NEW v3.0.0: Check last N candles (lookback_window)
+            lookback = min(self.lookback_window, len(pattern))
 
-            # Additional check: uptrend context
-            # TA-Lib does NOT check for uptrend (research shows 50/50 up/down)
-            # We add this check because Shooting Star is a reversal pattern
-            if self.require_uptrend:
-                context_score = self._get_cached_context_score(df)
-                if context_score < self.min_uptrend_score:
-                    return False  # Shooting Star فقط در uptrend معتبر است
+            for i in range(lookback):
+                # Check from newest to oldest
+                # i=0: last candle (pattern[-1])
+                # i=1: second to last (pattern[-2])
+                # etc.
+                idx = -(i + 1)
 
-            return True
+                # pattern values: -100 (bearish signal), 0 (no pattern)
+                # Note: TA-Lib only detects bullish candles (close > open)
+                if pattern[idx] != 0:
+                    # Pattern found!
+                    # Additional check: uptrend context
+                    # TA-Lib does NOT check for uptrend (research shows 50/50 up/down)
+                    # We add this check because Shooting Star is a reversal pattern
+                    if self.require_uptrend:
+                        context_score = self._get_cached_context_score(df)
+                        if context_score < self.min_uptrend_score:
+                            continue  # Try next candle
+
+                    # Valid detection - store position
+                    self._last_detection_candles_ago = i
+                    return True
+
+            # Not found in last N candles
+            return False
 
         except Exception as e:
             return False
@@ -440,29 +469,56 @@ class ShootingStarPattern(BasePattern):
         """
         Get additional details about Shooting Star detection with quality metrics.
 
+        NEW in v3.0.0: Includes recency information
+        - candles_ago: Which candle has the pattern (0-11)
+        - recency_multiplier: Score multiplier based on age
+        - Adjusted confidence based on recency
+
         Returns:
             Dictionary containing:
-            - confidence: Trading confidence (0-1)
-            - metadata: Detailed quality metrics
+            - location: 'current' or 'recent'
+            - candles_ago: 0-11
+            - recency_multiplier: based on config
+            - confidence: Trading confidence (0-1), adjusted by recency
+            - metadata: Detailed quality metrics + recency info
         """
         if len(df) == 0:
             return super()._get_detection_details(df)
 
         try:
-            last_candle = df.iloc[-1]
+            # Get detection position (set by detect())
+            candles_ago = getattr(self, '_last_detection_candles_ago', 0)
+            if candles_ago is None:
+                candles_ago = 0
+
+            # Get recency multiplier
+            if candles_ago < len(self.recency_multipliers):
+                recency_multiplier = self.recency_multipliers[candles_ago]
+            else:
+                recency_multiplier = 0.0  # Too old
+
+            # Get the candle where pattern was detected
+            candle_idx = -(candles_ago + 1)
+            detected_candle = df.iloc[candle_idx]
 
             # محاسبه معیارهای کیفیت
-            quality_metrics = self._calculate_quality_metrics(last_candle, df)
+            quality_metrics = self._calculate_quality_metrics(detected_candle, df)
 
-            # محاسبه confidence بر اساس overall_quality
-            # overall_quality: 0-100 → confidence: 0.4-0.95
-            confidence = 0.4 + (quality_metrics['overall_quality'] / 100) * 0.55
-            confidence = max(0.4, min(0.95, confidence))
+            # محاسبه base confidence بر اساس overall_quality
+            # overall_quality: 0-100 → base_confidence: 0.4-0.95
+            base_confidence = 0.4 + (quality_metrics['overall_quality'] / 100) * 0.55
+            base_confidence = max(0.4, min(0.95, base_confidence))
+
+            # NEW v3.0.0: Adjust confidence with recency multiplier
+            # Recent patterns → higher confidence
+            # Older patterns → lower confidence
+            adjusted_confidence = min(base_confidence * recency_multiplier, 0.95)
 
             return {
-                'location': 'current',
-                'candles_ago': 0,
-                'confidence': confidence,
+                'location': 'current' if candles_ago == 0 else 'recent',
+                'candles_ago': candles_ago,
+                'recency_multiplier': recency_multiplier,
+                'confidence': adjusted_confidence,
                 'metadata': {
                     **quality_metrics,
                     'thresholds': {
@@ -475,10 +531,17 @@ class ShootingStarPattern(BasePattern):
                     },
                     'detector_version': SHOOTING_STAR_PATTERN_VERSION,
                     'price_info': {
-                        'open': float(last_candle['open']),
-                        'high': float(last_candle['high']),
-                        'low': float(last_candle['low']),
-                        'close': float(last_candle['close'])
+                        'open': float(detected_candle['open']),
+                        'high': float(detected_candle['high']),
+                        'low': float(detected_candle['low']),
+                        'close': float(detected_candle['close'])
+                    },
+                    'recency_info': {
+                        'candles_ago': candles_ago,
+                        'multiplier': recency_multiplier,
+                        'lookback_window': self.lookback_window,
+                        'base_confidence': base_confidence,
+                        'adjusted_confidence': adjusted_confidence
                     }
                 }
             }

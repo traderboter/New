@@ -306,6 +306,11 @@ class PatternAnalyzer(BaseAnalyzer):
                 else:
                     pattern['volume_confirmed'] = False
 
+            # NEW v3.0.0: Apply recency multiplier
+            # If pattern was detected in recent candles (not current), apply decay
+            recency_multiplier = pattern.get('recency_multiplier', 1.0)
+            multiplier *= recency_multiplier
+
             # Apply multiplier
             pattern['adjusted_strength'] = pattern['base_strength'] * multiplier
             pattern['score_multiplier'] = multiplier

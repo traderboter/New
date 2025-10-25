@@ -3,7 +3,16 @@ Inverted Hammer Pattern Detector
 
 Detects Inverted Hammer candlestick pattern using TALib.
 Inverted Hammer is a bullish reversal pattern.
+
+Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
+- 🔄 BREAKING: Fix TA-Lib integration (12+ candles required)
+- 🔬 بر اساس تحقیقات در talib-test/:
+  * TA-Lib نیاز به حداقل 12 کندل دارد (11 قبلی + 1 فعلی)
+  * با کمتر از 12 کندل: هیچ تشخیصی نمی‌دهد
+- 📊 Detection rate در BTC 1-hour data: 59/10543 = 0.56%
 """
+
+INVERTED_HAMMER_PATTERN_VERSION = "2.0.0"
 
 import talib
 import pandas as pd
@@ -15,7 +24,7 @@ from signal_generation.analyzers.patterns.base_pattern import BasePattern
 
 class InvertedHammerPattern(BasePattern):
     """
-    Inverted Hammer candlestick pattern detector.
+    Inverted Hammer candlestick pattern detector using TA-Lib.
 
     Characteristics:
     - Bullish reversal pattern
@@ -25,7 +34,16 @@ class InvertedHammerPattern(BasePattern):
     - Best when appears after downtrend
 
     Strength: 2/3 (Medium)
+
+    TA-Lib Requirements (based on research in talib-test/):
+    - Minimum 12 candles (11 previous + 1 current) - CRITICAL!
+    - Detection rate on BTC 1-hour: 59/10543 = 0.56%
     """
+
+    def __init__(self, config: Dict[str, Any] = None):
+        """Initialize Inverted Hammer detector."""
+        super().__init__(config)
+        self.version = INVERTED_HAMMER_PATTERN_VERSION
 
     def _get_pattern_name(self) -> str:
         return "Inverted Hammer"
@@ -48,12 +66,26 @@ class InvertedHammerPattern(BasePattern):
         close_col: str = 'close',
         volume_col: str = 'volume'
     ) -> bool:
-        """Detect Inverted Hammer pattern using TALib."""
+        """
+        Detect Inverted Hammer pattern using TA-Lib CDLINVERTEDHAMMER.
+
+        TA-Lib Requirements (based on research in talib-test/):
+        1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
+        2. Detection rate: 0.56%
+
+        Returns:
+            bool: True if Inverted Hammer pattern detected on last candle
+        """
         if not self._validate_dataframe(df):
+            return False
+
+        # TA-Lib needs minimum 12 candles
+        if len(df) < 12:
             return False
 
         try:
             # Use TALib to detect
+            # Pass full DataFrame - TA-Lib uses previous candles for context
             result = talib.CDLINVERTEDHAMMER(
                 df[open_col].values,
                 df[high_col].values,

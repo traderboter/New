@@ -1,0 +1,486 @@
+======================================================================
+TA-Lib Pattern Lookback Requirements Test
+======================================================================
+
+Testing 16 patterns...
+✅ Loaded 10543 BTC candles from /home/user/New/historical/BTC-USDT/1hour.csv
+
+======================================================================
+Skipping Shooting Star - Already Fixed (v2.0.0)
+Expected lookback: 11
+======================================================================
+
+======================================================================
+Skipping Hammer - Already Fixed (v2.0.0)
+Expected lookback: 11
+======================================================================
+
+======================================================================
+Testing: Inverted Hammer
+======================================================================
+Total detections in full data: 59/10543 (0.56%)
+First detection at index: 119
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=11
+
+======================================================================
+Testing: Hanging Man
+======================================================================
+Total detections in full data: 187/10543 (1.77%)
+First detection at index: 122
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=11
+
+======================================================================
+Testing: Doji
+======================================================================
+Total detections in full data: 1485/10543 (14.09%)
+First detection at index: 19
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+✅ lookback=10: DETECTED (11 candles)
+   ⭐ MINIMUM FOUND: 10 lookback (11 candles total)
+✅ lookback=11: DETECTED (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=10
+
+======================================================================
+Testing: Engulfing
+======================================================================
+Total detections in full data: 1714/10543 (16.26%)
+First detection at index: 11
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+✅ lookback= 2: DETECTED (3 candles)
+   ⭐ MINIMUM FOUND: 2 lookback (3 candles total)
+✅ lookback= 3: DETECTED (4 candles)
+✅ lookback= 4: DETECTED (5 candles)
+✅ lookback= 5: DETECTED (6 candles)
+✅ lookback=10: DETECTED (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=2
+
+======================================================================
+Testing: Piercing Line
+======================================================================
+Total detections in full data: 3/10543 (0.03%)
+First detection at index: 1235
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+======================================================================
+Testing: Dark Cloud Cover
+======================================================================
+Total detections in full data: 3/10543 (0.03%)
+First detection at index: 2263
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+======================================================================
+Testing: Harami
+======================================================================
+Total detections in full data: 765/10543 (7.26%)
+First detection at index: 17
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=11
+
+======================================================================
+Testing: Harami Cross
+======================================================================
+Total detections in full data: 147/10543 (1.39%)
+First detection at index: 52
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+✅ lookback=11: DETECTED (12 candles)
+   ⭐ MINIMUM FOUND: 11 lookback (12 candles total)
+✅ lookback=12: DETECTED (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=11
+
+======================================================================
+Testing: Morning Star
+======================================================================
+Total detections in full data: 40/10543 (0.38%)
+First detection at index: 142
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+   ⭐ MINIMUM FOUND: 12 lookback (13 candles total)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=12
+
+======================================================================
+Testing: Evening Star
+======================================================================
+Total detections in full data: 49/10543 (0.46%)
+First detection at index: 347
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+   ⭐ MINIMUM FOUND: 12 lookback (13 candles total)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=12
+
+======================================================================
+Testing: Morning Doji Star
+======================================================================
+Total detections in full data: 12/10543 (0.11%)
+First detection at index: 142
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+   ⭐ MINIMUM FOUND: 12 lookback (13 candles total)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=12
+
+======================================================================
+Testing: Evening Doji Star
+======================================================================
+Total detections in full data: 12/10543 (0.11%)
+First detection at index: 347
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+   ⭐ MINIMUM FOUND: 12 lookback (13 candles total)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+🔬 Verifying with 10 random detections...
+✅ All 10 detections confirmed with lookback=12
+
+======================================================================
+Testing: 3 White Soldiers
+======================================================================
+Total detections in full data: 9/10543 (0.09%)
+First detection at index: 579
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+✅ lookback=12: DETECTED (13 candles)
+   ⭐ MINIMUM FOUND: 12 lookback (13 candles total)
+✅ lookback=15: DETECTED (16 candles)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+======================================================================
+Testing: 3 Black Crows
+======================================================================
+Total detections in full data: 1/10543 (0.01%)
+First detection at index: 7721
+
+Testing minimum lookback requirement:
+❌ lookback= 0: NOT detected (1 candles)
+❌ lookback= 1: NOT detected (2 candles)
+❌ lookback= 2: NOT detected (3 candles)
+❌ lookback= 3: NOT detected (4 candles)
+❌ lookback= 4: NOT detected (5 candles)
+❌ lookback= 5: NOT detected (6 candles)
+❌ lookback=10: NOT detected (11 candles)
+❌ lookback=11: NOT detected (12 candles)
+❌ lookback=12: NOT detected (13 candles)
+✅ lookback=15: DETECTED (16 candles)
+   ⭐ MINIMUM FOUND: 15 lookback (16 candles total)
+✅ lookback=20: DETECTED (21 candles)
+✅ lookback=30: DETECTED (31 candles)
+✅ lookback=50: DETECTED (51 candles)
+
+======================================================================
+SUMMARY REPORT
+======================================================================
+
+Pattern                   Detections   Rate       Min Lookback    Status
+----------------------------------------------------------------------
+Shooting Star             N/A          N/A        11              ✅ Already Fixed
+Hammer                    N/A          N/A        11              ✅ Already Fixed
+Inverted Hammer           59           0.56%      11              ⚠️ Needs 12 candles
+Hanging Man               187          1.77%      11              ⚠️ Needs 12 candles
+Doji                      1485         14.09%     10              ⚠️ Needs 11 candles
+Engulfing                 1714         16.26%     2               ⚠️ Needs 3 candles
+Piercing Line             3            0.03%      11              ⚠️ Needs 12 candles
+Dark Cloud Cover          3            0.03%      11              ⚠️ Needs 12 candles
+Harami                    765          7.26%      11              ⚠️ Needs 12 candles
+Harami Cross              147          1.39%      11              ⚠️ Needs 12 candles
+Morning Star              40           0.38%      12              ⚠️ Needs 13 candles
+Evening Star              49           0.46%      12              ⚠️ Needs 13 candles
+Morning Doji Star         12           0.11%      12              ⚠️ Needs 13 candles
+Evening Doji Star         12           0.11%      12              ⚠️ Needs 13 candles
+3 White Soldiers          9            0.09%      12              ⚠️ Needs 13 candles
+3 Black Crows             1            0.01%      15              ⚠️ Needs 16 candles
+
+======================================================================
+CATEGORIZATION
+======================================================================
+
+✅ Works with 1 candle (0):
+
+⚠️  Needs more than 1 candle (14):
+   - Inverted Hammer: 12 candles (lookback=11)
+   - Hanging Man: 12 candles (lookback=11)
+   - Doji: 11 candles (lookback=10)
+   - Engulfing: 3 candles (lookback=2)
+   - Piercing Line: 12 candles (lookback=11)
+   - Dark Cloud Cover: 12 candles (lookback=11)
+   - Harami: 12 candles (lookback=11)
+   - Harami Cross: 12 candles (lookback=11)
+   - Morning Star: 13 candles (lookback=12)
+   - Evening Star: 13 candles (lookback=12)
+   - Morning Doji Star: 13 candles (lookback=12)
+   - Evening Doji Star: 13 candles (lookback=12)
+   - 3 White Soldiers: 13 candles (lookback=12)
+   - 3 Black Crows: 16 candles (lookback=15)
+
+✅ Already Fixed (2):
+   - Shooting Star
+   - Hammer
+
+🔍 No detections in dataset (0):
+
+======================================================================
+RECOMMENDATIONS
+======================================================================
+
+⚠️  14 patterns need to be fixed:
+
+   📝 Inverted Hammer (inverted_hammer.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 0.56%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Hanging Man (hanging_man.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 1.77%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Doji (doji.py):
+      - Current: probably passing 1 candle
+      - Required: 11 candles (lookback=10)
+      - Detection rate: 14.09%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Engulfing (engulfing.py):
+      - Current: probably passing 1 candle
+      - Required: 3 candles (lookback=2)
+      - Detection rate: 16.26%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Piercing Line (piercing_line.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 0.03%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Dark Cloud Cover (dark_cloud_cover.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 0.03%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Harami (harami.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 7.26%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Harami Cross (harami_cross.py):
+      - Current: probably passing 1 candle
+      - Required: 12 candles (lookback=11)
+      - Detection rate: 1.39%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Morning Star (morning_star.py):
+      - Current: probably passing 1 candle
+      - Required: 13 candles (lookback=12)
+      - Detection rate: 0.38%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Evening Star (evening_star.py):
+      - Current: probably passing 1 candle
+      - Required: 13 candles (lookback=12)
+      - Detection rate: 0.46%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Morning Doji Star (morning_doji_star.py):
+      - Current: probably passing 1 candle
+      - Required: 13 candles (lookback=12)
+      - Detection rate: 0.11%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 Evening Doji Star (evening_doji_star.py):
+      - Current: probably passing 1 candle
+      - Required: 13 candles (lookback=12)
+      - Detection rate: 0.11%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 3 White Soldiers (3_white_soldiers.py):
+      - Current: probably passing 1 candle
+      - Required: 13 candles (lookback=12)
+      - Detection rate: 0.09%
+      - Action: Update detect() method to use df.tail(100)
+
+   📝 3 Black Crows (3_black_crows.py):
+      - Current: probably passing 1 candle
+      - Required: 16 candles (lookback=15)
+      - Detection rate: 0.01%
+      - Action: Update detect() method to use df.tail(100)
+
+======================================================================

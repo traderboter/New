@@ -1,8 +1,25 @@
 """
 Hammer Pattern Detector
 
-Detects Hammer candlestick pattern with configurable thresholds.
+Detects Hammer candlestick pattern using TA-Lib CDLHAMMER.
 Hammer is a bullish reversal pattern.
+
+Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
+- 🔄 BREAKING: بازگشت به استفاده از TA-Lib CDLHAMMER
+- 🔬 بر اساس تحقیقات در talib-test/:
+  * TA-Lib نیاز به حداقل 12 کندل دارد (11 قبلی + 1 فعلی)
+  * TA-Lib هم کندل‌های BEARISH و هم BULLISH را تشخیص می‌دهد
+  * TA-Lib ترند را چک نمی‌کند (ما این را اضافه کردیم)
+- 📊 Detection rate در BTC 1-hour data: 277/10543 = 2.63%
+- ⭐ 3.7× رایج‌تر از Shooting Star!
+- ✅ نگه‌داری downtrend check (TA-Lib ندارد)
+- ✅ نگه‌داری quality scoring system
+- ⚠️ حذف manual physics detection (جایگزین با TA-Lib)
+
+Why TA-Lib?
+- مشکل قبلی: فقط 1 کندل به TA-Lib می‌دادیم → 0 detection
+- حل: کل DataFrame (یا حداقل 12 کندل) → 277 detection ✅
+- TA-Lib استاندارد صنعت و قابل اعتمادتر است
 
 Version: 1.2.0 (2025-10-24)
 - جایگزینی TA-Lib با detector دستی
@@ -16,7 +33,7 @@ Quality Score:
 - Body position در بالا → Quality بیشتر
 """
 
-HAMMER_PATTERN_VERSION = "1.2.0"
+HAMMER_PATTERN_VERSION = "2.0.0"
 
 import talib
 import pandas as pd
@@ -28,21 +45,32 @@ from signal_generation.analyzers.patterns.base_pattern import BasePattern
 
 class HammerPattern(BasePattern):
     """
-    Hammer candlestick pattern detector.
+    Hammer candlestick pattern detector using TA-Lib.
 
-    Characteristics:
-    - Bullish reversal pattern
+    Characteristics (based on TA-Lib and research):
+    - Bullish reversal pattern (opposite of Shooting Star)
+    - Accepts both BEARISH and BULLISH candles (TA-Lib feature)
     - Small body at top of candle
-    - Long lower shadow (at least 2x body)
-    - Little to no upper shadow
-    - Best when appears after downtrend
+    - Long lower shadow (TA-Lib average: 63.9% of range)
+    - Little to no upper shadow (TA-Lib average: 8.0% of range)
+    - Best when appears after downtrend (we add this check)
 
     Strength: 2/3 (Medium-Strong)
 
-    Configurable Thresholds:
-    - min_lower_shadow_ratio: حداقل نسبت lower shadow به body (default: 2.0)
-    - max_upper_shadow_ratio: حداکثر نسبت upper shadow به body (default: 0.1)
-    - min_body_position: حداقل موقعیت body در range (default: 0.66 = top 1/3)
+    TA-Lib Requirements:
+    - Minimum 12 candles (11 previous + 1 current)
+    - Lower shadow: ~21-99% of range (mean: 63.9%)
+    - Body: ~0.3-50% of range (mean: 28.2%)
+    - Upper shadow: ~0-57% of range (mean: 8.0%)
+    - Detection rate on BTC 1-hour: 277/10543 = 2.63%
+
+    Configurable Parameters:
+    - require_downtrend: آیا downtrend اجباری است؟ (default: True)
+    - min_downtrend_score: حداقل امتیاز downtrend (default: 50.0 = 0-100 scale)
+
+    Note: min_lower_shadow_ratio, max_upper_shadow_ratio, min_body_position
+    are kept for backward compatibility but NOT used in detect() (TA-Lib handles this).
+    They are still used in quality_metrics calculation.
     """
 
     def __init__(
@@ -50,20 +78,24 @@ class HammerPattern(BasePattern):
         config: Dict[str, Any] = None,
         min_lower_shadow_ratio: float = None,
         max_upper_shadow_ratio: float = None,
-        min_body_position: float = None
+        min_body_position: float = None,
+        require_downtrend: bool = None,
+        min_downtrend_score: float = None
     ):
         """
         Initialize Hammer detector.
 
         Args:
             config: Configuration dictionary
-            min_lower_shadow_ratio: حداقل نسبت lower shadow/body (default: 2.0)
-            max_upper_shadow_ratio: حداکثر نسبت upper shadow/body (default: 0.1)
-            min_body_position: حداقل موقعیت body (0.66 = top 1/3)
+            min_lower_shadow_ratio: حداقل نسبت lower shadow/body (default: 2.0) - NOT used in detect()
+            max_upper_shadow_ratio: حداکثر نسبت upper shadow/body (default: 0.1) - NOT used in detect()
+            min_body_position: حداقل موقعیت body (0.66 = top 1/3) - NOT used in detect()
+            require_downtrend: آیا downtrend برای detection اجباری است؟ (default: True)
+            min_downtrend_score: حداقل امتیاز downtrend برای detection (default: 50.0)
         """
         super().__init__(config)
 
-        # تعیین thresholds از مصادر مختلف
+        # تعیین thresholds از مصادر مختلف (kept for backward compatibility)
         self.min_lower_shadow_ratio = (
             min_lower_shadow_ratio
             if min_lower_shadow_ratio is not None
@@ -82,7 +114,24 @@ class HammerPattern(BasePattern):
             else config.get('hammer_min_body_position', 0.66) if config else 0.66
         )
 
+        # پارامترهای downtrend (جدید در v2.0.0)
+        self.require_downtrend = (
+            require_downtrend
+            if require_downtrend is not None
+            else config.get('hammer_require_downtrend', True) if config else True
+        )
+
+        self.min_downtrend_score = (
+            min_downtrend_score
+            if min_downtrend_score is not None
+            else config.get('hammer_min_downtrend_score', 50.0) if config else 50.0
+        )
+
         self.version = HAMMER_PATTERN_VERSION
+
+        # Cache for context_score to avoid duplicate calculations
+        self._cached_context_score = None
+        self._cached_df_length = None
 
     def _get_pattern_name(self) -> str:
         return "Hammer"
@@ -106,52 +155,57 @@ class HammerPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Hammer pattern using custom thresholds.
+        Detect Hammer pattern using TA-Lib CDLHAMMER.
+
+        TA-Lib Requirements (based on research in talib-test/):
+        1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
+        2. Detects both BEARISH and BULLISH candles
+        3. Does NOT check for downtrend context
+
+        Our Additional Checks:
+        - Downtrend detection (if require_downtrend=True)
+        - TA-Lib found 277/10543 = 2.63% patterns in BTC 1-hour data
 
         شرایط Hammer:
-        1. Lower shadow >= min_lower_shadow_ratio * body
-        2. Upper shadow <= max_upper_shadow_ratio * body
-        3. Body position >= min_body_position (در بالای کندل)
+        - Lower shadow بلند (TA-Lib: میانگین 63.9%)
+        - Body کوچک (TA-Lib: میانگین 28.2%)
+        - Upper shadow کوچک (TA-Lib: میانگین 8.0%)
+        - (اختیاری) Downtrend detection: context score >= min_downtrend_score
         """
         if not self._validate_dataframe(df):
             return False
 
+        # TA-Lib needs minimum 12 candles
+        if len(df) < 12:
+            return False
+
         try:
-            last_candle = df.iloc[-1]
+            # Prepare data for TA-Lib
+            # Use last 100 candles for performance (minimum 12, but more is fine)
+            df_tail = df.tail(100)
 
-            open_price = last_candle[open_col]
-            high = last_candle[high_col]
-            low = last_candle[low_col]
-            close = last_candle[close_col]
+            # Call TA-Lib CDLHAMMER
+            # TA-Lib uses previous candles for context in its algorithm
+            pattern = talib.CDLHAMMER(
+                df_tail[open_col].values,
+                df_tail[high_col].values,
+                df_tail[low_col].values,
+                df_tail[close_col].values
+            )
 
-            # محاسبه اندازه‌ها
-            body_size = abs(close - open_price)
-            lower_shadow = min(open_price, close) - low
-            upper_shadow = high - max(open_price, close)
-            full_range = high - low
-
-            if full_range == 0:
+            # Check if last candle is detected as Hammer
+            # pattern values: 100 (bullish signal), 0 (no pattern)
+            # Note: TA-Lib detects both bearish and bullish candles
+            if pattern[-1] == 0:
                 return False
 
-            # برای جلوگیری از division by zero در body_size
-            # استفاده از full_range به عنوان fallback
-            body_for_ratio = max(body_size, full_range * 0.01)
-
-            # شرط 1: Lower shadow باید بلند باشد
-            lower_shadow_ratio = lower_shadow / body_for_ratio
-            if lower_shadow_ratio < self.min_lower_shadow_ratio:
-                return False
-
-            # شرط 2: Upper shadow باید کوچک باشد
-            upper_shadow_ratio = upper_shadow / body_for_ratio
-            if upper_shadow_ratio > self.max_upper_shadow_ratio:
-                return False
-
-            # شرط 3: Body باید در بالای کندل باشد
-            body_bottom = min(open_price, close)
-            body_position = (body_bottom - low) / full_range
-            if body_position < self.min_body_position:
-                return False
+            # Additional check: downtrend context
+            # TA-Lib does NOT check for downtrend (research shows 58% in uptrend!)
+            # We add this check because Hammer is a bullish reversal pattern
+            if self.require_downtrend:
+                context_score = self._get_cached_context_score(df)
+                if context_score < self.min_downtrend_score:
+                    return False  # Hammer فقط در downtrend معتبر است
 
             return True
 
@@ -218,8 +272,8 @@ class HammerPattern(BasePattern):
             0.15 * body_size_score
         )
 
-        # 6. Context Analysis (downtrend detection)
-        context_score = self._analyze_context(df)
+        # 6. Context Analysis (downtrend detection) - use cached value
+        context_score = self._get_cached_context_score(df)
 
         # 7. Hammer Type Detection
         hammer_type = self._detect_hammer_type(
@@ -273,6 +327,31 @@ class HammerPattern(BasePattern):
 
         # Standard Hammer: شرایط استاندارد
         return "Standard"
+
+    def _get_cached_context_score(self, df: pd.DataFrame) -> float:
+        """
+        Get context score with caching to avoid duplicate calculations.
+
+        Cache is invalidated when df length changes (new candle added).
+
+        Args:
+            df: DataFrame with OHLC data
+
+        Returns:
+            Context score (0-100)
+        """
+        current_df_length = len(df)
+
+        # Check if cache is valid
+        if (self._cached_context_score is not None and
+            self._cached_df_length == current_df_length):
+            return self._cached_context_score
+
+        # Calculate and cache
+        self._cached_context_score = self._analyze_context(df)
+        self._cached_df_length = current_df_length
+
+        return self._cached_context_score
 
     def _analyze_context(self, df: pd.DataFrame) -> float:
         """

@@ -1,8 +1,24 @@
 """
 Shooting Star Pattern Detector
 
-Detects Shooting Star candlestick pattern with configurable thresholds.
+Detects Shooting Star candlestick pattern using TA-Lib CDLSHOOTINGSTAR.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
+
+Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
+- 🔄 BREAKING: بازگشت به استفاده از TA-Lib CDLSHOOTINGSTAR
+- 🔬 بر اساس تحقیقات در talib-test/:
+  * TA-Lib نیاز به حداقل 12 کندل دارد (11 قبلی + 1 فعلی)
+  * TA-Lib فقط کندل‌های BULLISH را تشخیص می‌دهد (close > open)
+  * TA-Lib ترند را چک نمی‌کند (ما این را اضافه کردیم)
+- 📊 Detection rate در BTC 1-hour data: 75/10543 = 0.71%
+- ✅ نگه‌داری uptrend check (TA-Lib ندارد)
+- ✅ نگه‌داری quality scoring system
+- ⚠️ حذف manual physics detection (جایگزین با TA-Lib)
+
+Why TA-Lib?
+- مشکل قبلی: فقط 1 کندل به TA-Lib می‌دادیم → 0 detection
+- حل: کل DataFrame (یا حداقل 12 کندل) → 75 detection ✅
+- TA-Lib استاندارد صنعت و قابل اعتمادتر است
 
 Version: 1.4.1 (2025-10-25)
 - ⚡ OPTIMIZATION: اضافه شدن cache برای _analyze_context()
@@ -16,39 +32,13 @@ Version: 1.4.0 (2025-10-25)
   * require_uptrend: آیا uptrend اجباری است؟ (default: True)
   * min_uptrend_score: حداقل امتیاز uptrend (default: 50.0)
 
-Version: 1.3.0 (2025-10-24)
-- 🔧 FIX CRITICAL: تغییر منطق detection از body-based به range-based
-- قبلاً: مقایسه shadows با body size (منطق اشتباه!)
-- حالا: مقایسه shadows با full range (منطق صحیح!)
-- Thresholds جدید:
-  * min_upper_shadow_pct: حداقل درصد upper shadow از range (default: 50%)
-  * max_lower_shadow_pct: حداکثر درصد lower shadow از range (default: 20%)
-  * max_body_pct: حداکثر درصد body از range (default: 30%)
-  * max_body_position: موقعیت body در پایین (default: 0.4)
-
-Version: 1.2.2 (2025-10-24)
-- رفع ادامه مشکل threshold - max_lower_shadow: 0.5 → 1.0
-- با این تغییر، Shooting Star می‌تواند lower shadow تا 1x body داشته باشد
-
-Version: 1.2.1 (2025-10-24)
-- رفع مشکل threshold های خیلی سخت (relaxed defaults)
-- min_upper_shadow: 2.0 → 1.5
-- max_lower_shadow: 0.1 → 0.5
-- max_body_position: 0.33 → 0.4
-
-Version: 1.2.0 (2025-10-24)
-- جایگزینی TA-Lib با detector دستی
-- threshold های قابل تنظیم
-- Quality scoring system (0-100)
-- Shooting Star type detection و context analysis
-
 Quality Score:
 - هرچه upper_shadow بلندتر → Quality بیشتر
 - lower_shadow کوچکتر → Quality بیشتر
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.4.1"
+SHOOTING_STAR_PATTERN_VERSION = "2.0.0"
 
 import talib
 import pandas as pd
@@ -60,24 +50,32 @@ from signal_generation.analyzers.patterns.base_pattern import BasePattern
 
 class ShootingStarPattern(BasePattern):
     """
-    Shooting Star candlestick pattern detector.
+    Shooting Star candlestick pattern detector using TA-Lib.
 
-    Characteristics:
+    Characteristics (based on TA-Lib and research):
     - Bearish reversal pattern (opposite of Hammer)
+    - BULLISH candle only (close > open) - TA-Lib limitation
     - Small body at bottom of candle
-    - Long upper shadow (at least 50% of full range)
-    - Little to no lower shadow (max 20% of full range)
-    - Best when appears after uptrend
+    - Long upper shadow (TA-Lib average: 62.8% of range)
+    - Little to no lower shadow (TA-Lib average: 5.9% of range)
+    - Best when appears after uptrend (we add this check)
 
     Strength: 2/3 (Medium-Strong)
 
-    Configurable Thresholds (all relative to full candle range):
-    - min_upper_shadow_pct: حداقل درصد upper shadow (default: 0.5 = 50%)
-    - max_lower_shadow_pct: حداکثر درصد lower shadow (default: 0.2 = 20%)
-    - max_body_pct: حداکثر درصد body (default: 0.3 = 30%)
-    - max_body_position: حداکثر موقعیت body (default: 0.4 = bottom 40%)
+    TA-Lib Requirements:
+    - Minimum 12 candles (11 previous + 1 current)
+    - Upper shadow: ~35-95% of range (mean: 62.8%)
+    - Body: ~2-50% of range (mean: 31.3%)
+    - Lower shadow: ~0-33% of range (mean: 5.9%)
+    - Detection rate on BTC 1-hour: 75/10543 = 0.71%
+
+    Configurable Parameters:
     - require_uptrend: آیا uptrend اجباری است؟ (default: True)
     - min_uptrend_score: حداقل امتیاز uptrend (default: 50.0 = 0-100 scale)
+
+    Note: min_upper_shadow_pct, max_lower_shadow_pct, max_body_pct, max_body_position
+    are kept for backward compatibility but NOT used in detect() (TA-Lib handles this).
+    They are still used in quality_metrics calculation.
     """
 
     def __init__(
@@ -170,59 +168,54 @@ class ShootingStarPattern(BasePattern):
         volume_col: str = 'volume'
     ) -> bool:
         """
-        Detect Shooting Star pattern using range-based thresholds.
+        Detect Shooting Star pattern using TA-Lib CDLSHOOTINGSTAR.
 
-        شرایط Shooting Star (همه نسبت به full range):
-        1. Upper shadow >= min_upper_shadow_pct از range (مثلاً 50%)
-        2. Lower shadow <= max_lower_shadow_pct از range (مثلاً 20%)
-        3. Body size <= max_body_pct از range (مثلاً 30%)
-        4. Body position <= max_body_position (در پایین کندل)
-        5. (اختیاری) Uptrend detection: context score >= min_uptrend_score
+        TA-Lib Requirements (based on research in talib-test/):
+        1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
+        2. Detects BULLISH candles only (close > open)
+        3. Does NOT check for uptrend context
+
+        Our Additional Checks:
+        - Uptrend detection (if require_uptrend=True)
+        - TA-Lib found 75/10543 = 0.71% patterns in BTC 1-hour data
+
+        شرایط Shooting Star:
+        - کندل BULLISH (close > open)
+        - Upper shadow بلند (TA-Lib: میانگین 62.8%)
+        - Body کوچک (TA-Lib: میانگین 31.3%)
+        - Lower shadow کوچک (TA-Lib: میانگین 5.9%)
+        - (اختیاری) Uptrend detection: context score >= min_uptrend_score
         """
         if not self._validate_dataframe(df):
             return False
 
+        # TA-Lib needs minimum 12 candles
+        if len(df) < 12:
+            return False
+
         try:
-            last_candle = df.iloc[-1]
+            # Prepare data for TA-Lib
+            # Use last 100 candles for performance (minimum 12, but more is fine)
+            df_tail = df.tail(100)
 
-            open_price = last_candle[open_col]
-            high = last_candle[high_col]
-            low = last_candle[low_col]
-            close = last_candle[close_col]
+            # Call TA-Lib CDLSHOOTINGSTAR
+            # TA-Lib uses previous candles for context in its algorithm
+            pattern = talib.CDLSHOOTINGSTAR(
+                df_tail[open_col].values,
+                df_tail[high_col].values,
+                df_tail[low_col].values,
+                df_tail[close_col].values
+            )
 
-            # محاسبه اندازه‌ها
-            body_size = abs(close - open_price)
-            upper_shadow = high - max(open_price, close)
-            lower_shadow = min(open_price, close) - low
-            full_range = high - low
-
-            if full_range == 0:
+            # Check if last candle is detected as Shooting Star
+            # pattern values: -100 (bearish signal), 0 (no pattern)
+            # Note: TA-Lib only detects bullish candles (close > open)
+            if pattern[-1] == 0:
                 return False
 
-            # محاسبه درصدها نسبت به full range
-            upper_shadow_pct = upper_shadow / full_range
-            lower_shadow_pct = lower_shadow / full_range
-            body_pct = body_size / full_range
-
-            # شرط 1: Upper shadow باید بلند باشد (حداقل 50% از range)
-            if upper_shadow_pct < self.min_upper_shadow_pct:
-                return False
-
-            # شرط 2: Lower shadow باید کوچک باشد (حداکثر 20% از range)
-            if lower_shadow_pct > self.max_lower_shadow_pct:
-                return False
-
-            # شرط 3: Body باید کوچک باشد (حداکثر 30% از range)
-            if body_pct > self.max_body_pct:
-                return False
-
-            # شرط 4: Body باید در پایین کندل باشد
-            body_bottom = min(open_price, close)
-            body_position = (body_bottom - low) / full_range
-            if body_position > self.max_body_position:
-                return False
-
-            # شرط 5: چک کردن uptrend (جدید در v1.4.0)
+            # Additional check: uptrend context
+            # TA-Lib does NOT check for uptrend (research shows 50/50 up/down)
+            # We add this check because Shooting Star is a reversal pattern
             if self.require_uptrend:
                 context_score = self._get_cached_context_score(df)
                 if context_score < self.min_uptrend_score:

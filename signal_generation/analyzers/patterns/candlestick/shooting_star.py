@@ -4,6 +4,11 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern with configurable thresholds.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 1.4.1 (2025-10-25)
+- ⚡ OPTIMIZATION: اضافه شدن cache برای _analyze_context()
+- حذف محاسبات تکراری - context_score فقط یک بار برای هر کندل محاسبه می‌شود
+- Cache با تغییر طول DataFrame به‌روز می‌شود
+
 Version: 1.4.0 (2025-10-25)
 - 🎯 FIX CRITICAL: اضافه شدن شرط uptrend برای detection
 - Shooting Star فقط در uptrend معتبر است (الگوی بازگشتی)
@@ -43,7 +48,7 @@ Quality Score:
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "1.4.0"
+SHOOTING_STAR_PATTERN_VERSION = "1.4.1"
 
 import talib
 import pandas as pd
@@ -139,6 +144,10 @@ class ShootingStarPattern(BasePattern):
 
         self.version = SHOOTING_STAR_PATTERN_VERSION
 
+        # Cache for context_score to avoid duplicate calculations
+        self._cached_context_score = None
+        self._cached_df_length = None
+
     def _get_pattern_name(self) -> str:
         return "Shooting Star"
 
@@ -215,7 +224,7 @@ class ShootingStarPattern(BasePattern):
 
             # شرط 5: چک کردن uptrend (جدید در v1.4.0)
             if self.require_uptrend:
-                context_score = self._analyze_context(df)
+                context_score = self._get_cached_context_score(df)
                 if context_score < self.min_uptrend_score:
                     return False  # Shooting Star فقط در uptrend معتبر است
 
@@ -285,8 +294,8 @@ class ShootingStarPattern(BasePattern):
             0.15 * body_size_score
         )
 
-        # 6. Context Analysis (uptrend detection)
-        context_score = self._analyze_context(df)
+        # 6. Context Analysis (uptrend detection) - use cached value
+        context_score = self._get_cached_context_score(df)
 
         # 7. Shooting Star Type Detection
         shooting_star_type = self._detect_shooting_star_type(
@@ -340,6 +349,31 @@ class ShootingStarPattern(BasePattern):
 
         # Standard Shooting Star: شرایط استاندارد
         return "Standard"
+
+    def _get_cached_context_score(self, df: pd.DataFrame) -> float:
+        """
+        Get context score with caching to avoid duplicate calculations.
+
+        Cache is invalidated when df length changes (new candle added).
+
+        Args:
+            df: DataFrame with OHLC data
+
+        Returns:
+            Context score (0-100)
+        """
+        current_df_length = len(df)
+
+        # Check if cache is valid
+        if (self._cached_context_score is not None and
+            self._cached_df_length == current_df_length):
+            return self._cached_context_score
+
+        # Calculate and cache
+        self._cached_context_score = self._analyze_context(df)
+        self._cached_df_length = current_df_length
+
+        return self._cached_context_score
 
     def _analyze_context(self, df: pd.DataFrame) -> float:
         """

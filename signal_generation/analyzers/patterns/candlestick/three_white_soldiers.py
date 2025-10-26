@@ -126,7 +126,15 @@ class ThreeWhiteSoldiersPattern(BasePattern):
 
         # Get the three candles where pattern was detected
         candle_idx = -(candles_ago + 1)
-        candles = df.iloc[candle_idx - 2:candle_idx + 1].copy()
+        start_idx = candle_idx - 2
+        # When candles_ago=0, candle_idx+1=0, which makes iloc slice empty
+        # Use None to slice to the end instead
+        end_idx = None if candles_ago == 0 else candle_idx + 1
+        candles = df.iloc[start_idx:end_idx].copy()
+
+        # Safety check: ensure we have 3 candles
+        if len(candles) < 3:
+            return super()._get_detection_details(df)
 
         # Calculate body sizes and full ranges
         bodies = [abs(candles.iloc[i]['close'] - candles.iloc[i]['open']) for i in range(3)]

@@ -1,15 +1,15 @@
 """
-تست الگوی Doji روی داده‌های تاریخی BTC - نسخه ویندوز
+Doji Pattern Test on Historical BTC Data - Windows Version
 
-این اسکریپت الگوی Doji را کندل به کندل روی داده‌های تاریخی تست می‌کند.
+This script tests the Doji pattern candle-by-candle on historical data.
 
-نویسنده: Claude Code
-تاریخ: 2025-10-26
+Author: Claude Code
+Date: 2025-10-26
 
-نحوه اجرا در PyCharm:
-1. کلیک راست روی فایل → Run 'test_doji_windows'
-یا
-1. باز کردن Terminal در PyCharm
+How to run in PyCharm:
+1. Right-click on file -> Run 'test_doji_windows'
+OR
+1. Open Terminal in PyCharm
 2. python Pattern_Test/test_doji_windows.py
 """
 
@@ -17,35 +17,34 @@ import sys
 import os
 from pathlib import Path
 
-# تنظیم مسیر پروژه برای Windows
-# دریافت مسیر فعلی و رفتن به ریشه پروژه
+# Configure project path for Windows
 current_file = Path(__file__).resolve()
-project_root = current_file.parent.parent  # از Pattern_Test به New
+project_root = current_file.parent.parent  # From Pattern_Test to New
 
-# اضافه کردن به sys.path
+# Add to sys.path
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-print(f"📁 Project root: {project_root}")
-print(f"📁 Python paths: {sys.path[:3]}")
+print(f"Project root: {project_root}")
+print(f"Python paths: {sys.path[:3]}")
 
 import csv
 from datetime import datetime
 import json
 import shutil
 
-# حالا می‌توانیم import کنیم
+# Now we can import
 try:
     from signal_generation.analyzers.patterns.candlestick.doji import DojiPattern
-    print("✅ DojiPattern imported successfully")
+    print("DojiPattern imported successfully")
 except ImportError as e:
-    print(f"❌ خطا در import DojiPattern: {e}")
-    print(f"💡 لطفاً مطمئن شوید که در مسیر پروژه هستید: {project_root}")
+    print(f"Error importing DojiPattern: {e}")
+    print(f"Please make sure you are in the project path: {project_root}")
     sys.exit(1)
 
 
 class ILocIndexer:
-    """کلاس کمکی برای iloc که مثل pandas کار می‌کند"""
+    """Helper class for iloc that works like pandas"""
 
     def __init__(self, dataframe):
         self.dataframe = dataframe
@@ -56,11 +55,11 @@ class ILocIndexer:
         elif isinstance(index, slice):
             return SimpleDataFrame(self.dataframe.data[index], self.dataframe.columns)
         else:
-            raise TypeError(f"نوع {type(index)} پشتیبانی نمی‌شود")
+            raise TypeError(f"Type {type(index)} not supported")
 
 
 class SimpleDataFrame:
-    """یک DataFrame ساده برای جایگزینی pandas"""
+    """A simple DataFrame to replace pandas"""
 
     def __init__(self, data, columns):
         self.data = data
@@ -79,11 +78,11 @@ class SimpleDataFrame:
             sliced_data = self.data[key]
             return SimpleDataFrame(sliced_data, self.columns)
         else:
-            raise TypeError(f"نوع {type(key)} پشتیبانی نمی‌شود")
+            raise TypeError(f"Type {type(key)} not supported")
 
     @property
     def iloc(self):
-        """برگرداندن ILocIndexer برای دسترسی مثل pandas"""
+        """Return ILocIndexer for pandas-like access"""
         return self._iloc
 
     def copy(self):
@@ -91,51 +90,51 @@ class SimpleDataFrame:
 
 
 class DojiPatternTester:
-    """کلاس تست الگوی Doji برای Windows"""
+    """Doji pattern tester class for Windows"""
 
     def __init__(self):
-        """مقداردهی اولیه"""
-        # تنظیم مسیرها برای Windows
+        """Initialize"""
+        # Configure paths for Windows
         self.base_dir = project_root
         self.data_dir = self.base_dir / 'historical' / 'BTC-USDT'
         self.output_dir = self.base_dir / 'Pattern_Test'
         self.charts_dir = self.output_dir / 'Charts'
 
-        # ایجاد فولدر خروجی
+        # Create output folder
         self.charts_dir.mkdir(parents=True, exist_ok=True)
 
-        # پاک کردن چارت‌های قبلی
+        # Clear old charts
         self._clear_old_charts()
 
-        # ایجاد pattern detector
+        # Create pattern detector
         self.doji_detector = DojiPattern()
 
-        # ذخیره نتایج
+        # Store results
         self.results = []
 
-        print(f"✅ DojiPatternTester initialized")
-        print(f"   📂 Data directory: {self.data_dir}")
-        print(f"   📂 Output directory: {self.output_dir}")
-        print(f"   📊 Charts directory: {self.charts_dir}")
+        print(f"DojiPatternTester initialized")
+        print(f"   Data directory: {self.data_dir}")
+        print(f"   Output directory: {self.output_dir}")
+        print(f"   Charts directory: {self.charts_dir}")
 
     def _clear_old_charts(self):
-        """پاک کردن تمام چارت‌های قبلی"""
+        """Clear all previous charts"""
         if self.charts_dir.exists():
             chart_files = list(self.charts_dir.glob('*.png'))
             for chart_file in chart_files:
                 try:
                     chart_file.unlink()
                 except Exception as e:
-                    print(f"⚠️  نتوانستیم {chart_file.name} را پاک کنیم: {e}")
+                    print(f"Warning: Could not delete {chart_file.name}: {e}")
             if chart_files:
-                print(f"🗑️  {len(chart_files)} چارت قبلی پاک شد")
+                print(f"Cleared {len(chart_files)} previous charts")
 
     def load_csv(self, timeframe='5min'):
         """
-        بارگذاری داده‌های CSV
+        Load CSV data
 
         Args:
-            timeframe: تایم‌فریم مورد نظر (5min, 15min, 1hour, 4hour)
+            timeframe: Desired timeframe (5min, 15min, 1hour, 4hour)
 
         Returns:
             SimpleDataFrame
@@ -143,11 +142,11 @@ class DojiPatternTester:
         csv_file = self.data_dir / f"{timeframe}.csv"
 
         if not csv_file.exists():
-            print(f"❌ فایل {csv_file} پیدا نشد!")
-            print(f"💡 لطفاً مطمئن شوید فایل‌های CSV در {self.data_dir} موجود هستند")
-            raise FileNotFoundError(f"فایل {csv_file} پیدا نشد!")
+            print(f"Error: File {csv_file} not found!")
+            print(f"Please make sure CSV files are in {self.data_dir}")
+            raise FileNotFoundError(f"File {csv_file} not found!")
 
-        print(f"\n📖 در حال خواندن {csv_file}...")
+        print(f"\nReading {csv_file}...")
 
         data = []
         with open(csv_file, 'r', encoding='utf-8') as f:
@@ -165,59 +164,72 @@ class DojiPatternTester:
 
         df = SimpleDataFrame(data, list(data[0].keys()))
 
-        print(f"   ✅ {len(df)} کندل بارگذاری شد")
-        print(f"   📅 از {df[0]['timestamp']} تا {df[-1]['timestamp']}")
+        print(f"   Loaded {len(df)} candles")
+        print(f"   From {df[0]['timestamp']} to {df[-1]['timestamp']}")
 
         return df
 
     def test_candle_by_candle(self, df, timeframe='5min', lookback=50, start_from=100):
         """
-        تست کندل به کندل
+        Test candle-by-candle
 
         Args:
-            df: SimpleDataFrame داده‌ها
-            timeframe: نام تایم‌فریم
-            lookback: تعداد کندل‌های قبلی برای نمایش (50)
-            start_from: شروع تست از کندل چندم (100)
+            df: SimpleDataFrame of data
+            timeframe: Timeframe name
+            lookback: Number of previous candles to display (50)
+            start_from: Start test from which candle (100)
         """
-        print(f"\n🔍 شروع تست کندل به کندل از کندل {start_from}...")
+        print(f"\nStarting candle-by-candle test from candle {start_from}...")
 
         total_candles = len(df)
         detections = []
 
-        # Import pandas برای pattern detector
+        # Import pandas for pattern detector
         try:
             import pandas as pd
             pandas_available = True
         except ImportError:
-            print("❌ pandas موجود نیست!")
-            print("💡 لطفاً pandas را نصب کنید: pip install pandas")
+            print("Error: pandas not available!")
+            print("Please install pandas: pip install pandas")
             return []
 
-        # حلقه از start_from تا آخر
+        # Loop from start_from to end
         for i in range(start_from, total_candles):
-            # پیشرفت
+            # Progress
             if (i - start_from) % 100 == 0:
                 progress = ((i - start_from) / (total_candles - start_from)) * 100
-                print(f"   ⏳ پیشرفت: {progress:.1f}% ({i}/{total_candles})")
+                print(f"   Progress: {progress:.1f}% ({i}/{total_candles})")
 
-            # استخراج داده‌های تا کندل فعلی
+            # Extract data up to current candle
             df_slice_simple = df.iloc[:i+1]
             df_slice = pd.DataFrame(df_slice_simple.data)
 
-            # تست pattern
+            # Test pattern
             try:
                 is_detected = self.doji_detector.detect(df_slice)
             except Exception as e:
                 if i == start_from:
-                    print(f"❌ خطا در تشخیص الگو: {e}")
+                    print(f"Error in pattern detection: {e}")
                 continue
 
             if is_detected:
-                # الگو پیدا شد!
-                candle_info = df[i]
+                # Pattern found!
+                # Get pattern details to find which candle has the pattern
+                try:
+                    pattern_info = self.doji_detector.get_pattern_info(df_slice, timeframe)
+                    candles_ago = pattern_info.get('candles_ago', 0)
+                except Exception as e:
+                    pattern_info = None
+                    candles_ago = 0
+
+                # Calculate the actual index of the pattern candle
+                pattern_candle_index = i - candles_ago
+                candle_info = df[pattern_candle_index]
+
                 detection_info = {
-                    'index': i,
+                    'index': pattern_candle_index,
+                    'detected_at_index': i,
+                    'candles_ago': candles_ago,
                     'timestamp': candle_info['timestamp'],
                     'open': candle_info['open'],
                     'high': candle_info['high'],
@@ -229,49 +241,45 @@ class DojiPatternTester:
 
                 detections.append(detection_info)
 
-                # دریافت جزئیات الگو
-                try:
-                    pattern_info = self.doji_detector.get_pattern_info(df_slice, timeframe)
-                except Exception as e:
-                    pattern_info = None
-
-                print(f"\n🎯 الگوی Doji #{len(detections)} پیدا شد!")
-                print(f"   📍 کندل {i}: {candle_info['timestamp']}")
-                print(f"   💰 OHLC: O={candle_info['open']:.2f} H={candle_info['high']:.2f} "
+                print(f"\nDoji pattern #{len(detections)} detected!")
+                print(f"   Pattern candle {pattern_candle_index}: {candle_info['timestamp']}")
+                print(f"   Detected at candle {i} ({candles_ago} candles ago)")
+                print(f"   OHLC: O={candle_info['open']:.2f} H={candle_info['high']:.2f} "
                       f"L={candle_info['low']:.2f} C={candle_info['close']:.2f}")
                 if pattern_info:
-                    print(f"   ⭐ Confidence: {pattern_info.get('confidence', 0):.2%}")
-                    print(f"   📊 Location: {pattern_info.get('location', 'current')}")
-                    print(f"   🔍 Candles ago: {pattern_info.get('candles_ago', 0)}")
+                    print(f"   Confidence: {pattern_info.get('confidence', 0):.2%}")
+                    print(f"   Location: {pattern_info.get('location', 'current')}")
+                    print(f"   Recency multiplier: {pattern_info.get('recency_multiplier', 1.0):.2f}")
 
-                # رسم نمودار
-                self._plot_detection(df, i, lookback, timeframe, pattern_info)
+                # Plot chart
+                self._plot_detection(df, pattern_candle_index, lookback, timeframe, pattern_info)
 
-        print(f"\n📊 نتایج نهایی:")
-        print(f"   🔍 تعداد کندل‌های بررسی شده: {total_candles - start_from}")
-        print(f"   ✅ تعداد الگوهای پیدا شده: {len(detections)}")
+        print(f"\nFinal results:")
+        print(f"   Candles checked: {total_candles - start_from}")
+        print(f"   Patterns found: {len(detections)}")
 
-        # ذخیره نتایج
+        # Save results
         self.results.extend(detections)
         self._save_results(timeframe)
 
         return detections
 
-    def _plot_detection(self, df, detection_index, lookback, timeframe, pattern_info):
-        """رسم نمودار کندلی"""
+    def _plot_detection(self, df, pattern_index, lookback, timeframe, pattern_info):
+        """Plot candlestick chart"""
         try:
             import matplotlib
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
             from matplotlib.patches import Rectangle
 
-            start_idx = max(0, detection_index - lookback)
-            end_idx = detection_index + 1
+            start_idx = max(0, pattern_index - lookback)
+            end_idx = pattern_index + lookback
+            end_idx = min(end_idx, len(df))
             df_plot = df.iloc[start_idx:end_idx]
 
             fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
 
-            # رسم کندل‌ها
+            # Draw candles
             for idx in range(len(df_plot)):
                 row = df_plot[idx]
                 x_pos = idx
@@ -300,15 +308,16 @@ class DojiPatternTester:
                 )
                 ax.add_patch(rect)
 
-            # مشخص کردن کندل تشخیص داده شده
-            detection_position = detection_index - start_idx
-            detection_candle = df[detection_index]
+            # Mark the pattern candle
+            pattern_position = pattern_index - start_idx
+            pattern_candle = df[pattern_index]
 
-            ax.scatter([detection_position], [detection_candle['high']],
+            # Use simple marker instead of emoji
+            ax.scatter([pattern_position], [pattern_candle['high']],
                       color='blue', s=200, marker='v', zorder=5,
-                      label='🎯 Doji Pattern Detected')
+                      label='Doji Pattern Detected')
 
-            # تنظیمات محور X
+            # X-axis settings
             x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // 10)))
             x_labels = [df_plot[i]['timestamp'] for i in x_ticks]
             ax.set_xticks(x_ticks)
@@ -318,7 +327,7 @@ class DojiPatternTester:
             ax.set_ylabel('Price (USDT)', fontsize=12)
             ax.set_title(
                 f'Doji Pattern Detection - BTC/USDT {timeframe}\n'
-                f'Detected at: {detection_candle["timestamp"]} (Candle #{detection_index})',
+                f'Pattern at: {pattern_candle["timestamp"]} (Candle #{pattern_index})',
                 fontsize=14,
                 fontweight='bold'
             )
@@ -330,7 +339,8 @@ class DojiPatternTester:
                 info_text = f"Confidence: {pattern_info.get('confidence', 0):.1%}\n"
                 info_text += f"Direction: {pattern_info.get('direction', 'N/A')}\n"
                 info_text += f"Location: {pattern_info.get('location', 'current')}\n"
-                info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}"
+                info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}\n"
+                info_text += f"Recency mult: {pattern_info.get('recency_multiplier', 1.0):.2f}"
 
                 ax.text(
                     0.02, 0.98, info_text,
@@ -340,48 +350,48 @@ class DojiPatternTester:
                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
                 )
 
-            timestamp_str = detection_candle["timestamp"].replace(' ', '_').replace(':', '')
-            filename = f"doji_{timeframe}_candle_{detection_index}_{timestamp_str}.png"
+            timestamp_str = pattern_candle["timestamp"].replace(' ', '_').replace(':', '')
+            filename = f"doji_{timeframe}_candle_{pattern_index}_{timestamp_str}.png"
             filepath = self.charts_dir / filename
 
             plt.tight_layout()
             plt.savefig(filepath, dpi=100, bbox_inches='tight')
             plt.close(fig)
 
-            print(f"   💾 نمودار ذخیره شد: {filename}")
+            print(f"   Chart saved: {filename}")
 
         except Exception as e:
-            print(f"   ⚠️  خطا در رسم نمودار: {e}")
+            print(f"   Warning: Error plotting chart: {e}")
 
     def _save_results(self, timeframe):
-        """ذخیره نتایج در فایل JSON"""
+        """Save results to JSON file"""
         results_file = self.output_dir / f'doji_detections_{timeframe}.json'
 
         with open(results_file, 'w', encoding='utf-8') as f:
             json.dump(self.results, f, indent=2, ensure_ascii=False)
 
-        print(f"\n💾 نتایج در {results_file.name} ذخیره شد")
+        print(f"\nResults saved in {results_file.name}")
 
 
 def main():
-    """تابع اصلی"""
+    """Main function"""
 
     print("="*80)
-    print("🧪 تست الگوی Doji روی داده‌های تاریخی BTC/USDT - Windows")
+    print("Doji Pattern Test on Historical BTC/USDT Data - Windows")
     print("="*80)
 
     try:
-        # ایجاد tester
+        # Create tester
         tester = DojiPatternTester()
 
-        # انتخاب تایم‌فریم
+        # Select timeframe
         timeframe = '5min'
-        print(f"\n📊 تایم‌فریم انتخاب شده: {timeframe}")
+        print(f"\nSelected timeframe: {timeframe}")
 
-        # بارگذاری داده‌ها
+        # Load data
         df = tester.load_csv(timeframe)
 
-        # تست کندل به کندل
+        # Test candle-by-candle
         detections = tester.test_candle_by_candle(
             df=df,
             timeframe=timeframe,
@@ -390,20 +400,20 @@ def main():
         )
 
         print("\n" + "="*80)
-        print("✅ تست با موفقیت انجام شد!")
-        print(f"📊 {len(detections)} الگوی Doji پیدا شد")
-        print(f"📁 نمودارها در {tester.charts_dir} ذخیره شدند")
+        print("Test completed successfully!")
+        print(f"Found {len(detections)} Doji patterns")
+        print(f"Charts saved in {tester.charts_dir}")
         print("="*80)
 
-        # نمایش چند نتیجه اول
+        # Show first few results
         if detections:
-            print("\n📋 نمونه نتایج (5 اولی):")
+            print("\nSample results (first 5):")
             for i, det in enumerate(detections[:5], 1):
-                print(f"   {i}. کندل {det['index']}: {det['timestamp']} - "
-                      f"C={det['close']:.2f}")
+                print(f"   {i}. Candle {det['index']}: {det['timestamp']} - "
+                      f"C={det['close']:.2f} (detected {det['candles_ago']} candles ago)")
 
     except Exception as e:
-        print(f"\n❌ خطا: {e}")
+        print(f"\nError: {e}")
         import traceback
         traceback.print_exc()
         return 1
@@ -414,8 +424,8 @@ def main():
 if __name__ == "__main__":
     exit_code = main()
 
-    # در ویندوز، صبر کنید تا کاربر Enter بزند
+    # On Windows, wait for user to press Enter
     if os.name == 'nt':  # Windows
-        input("\n⏸️  Press Enter to exit...")
+        input("\nPress Enter to exit...")
 
     sys.exit(exit_code)

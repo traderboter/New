@@ -4,6 +4,14 @@ Shooting Star Pattern Detector
 Detects Shooting Star candlestick pattern using TA-Lib CDLSHOOTINGSTAR.
 Shooting Star is a bearish reversal pattern (opposite of Hammer).
 
+Version: 4.0.0 (2025-10-26) - Simplified Architecture
+- 🔥 REMOVED: Trend checking (now handled by separate Trend Analyzer)
+- ✅ KEPT: TA-Lib CDLSHOOTINGSTAR detection
+- ✅ KEPT: Multi-candle lookback (checks last 11 candles)
+- ✅ KEPT: Recency-based scoring
+- ✅ KEPT: Quality scoring system
+- 📐 Architecture: Pattern detection separated from trend analysis
+
 Version: 3.0.0 (2025-10-25) - Recency Scoring Implementation
 - ✨ NEW: Multi-candle lookback detection (checks last N candles)
 - ✨ NEW: Recency-based scoring (recent patterns score higher)
@@ -16,9 +24,8 @@ Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
 - 🔬 بر اساس تحقیقات در talib-test/:
   * TA-Lib نیاز به حداقل 12 کندل دارد (11 قبلی + 1 فعلی)
   * TA-Lib فقط کندل‌های BULLISH را تشخیص می‌دهد (close > open)
-  * TA-Lib ترند را چک نمی‌کند (ما این را اضافه کردیم)
+  * TA-Lib ترند را چک نمی‌کند
 - 📊 Detection rate در BTC 1-hour data: 75/10543 = 0.71%
-- ✅ نگه‌داری uptrend check (TA-Lib ندارد)
 - ✅ نگه‌داری quality scoring system
 - ⚠️ حذف manual physics detection (جایگزین با TA-Lib)
 
@@ -27,25 +34,13 @@ Why TA-Lib?
 - حل: کل DataFrame (یا حداقل 12 کندل) → 75 detection ✅
 - TA-Lib استاندارد صنعت و قابل اعتمادتر است
 
-Version: 1.4.1 (2025-10-25)
-- ⚡ OPTIMIZATION: اضافه شدن cache برای _analyze_context()
-- حذف محاسبات تکراری - context_score فقط یک بار برای هر کندل محاسبه می‌شود
-- Cache با تغییر طول DataFrame به‌روز می‌شود
-
-Version: 1.4.0 (2025-10-25)
-- 🎯 FIX CRITICAL: اضافه شدن شرط uptrend برای detection
-- Shooting Star فقط در uptrend معتبر است (الگوی بازگشتی)
-- پارامترهای جدید:
-  * require_uptrend: آیا uptrend اجباری است؟ (default: True)
-  * min_uptrend_score: حداقل امتیاز uptrend (default: 50.0)
-
 Quality Score:
 - هرچه upper_shadow بلندتر → Quality بیشتر
 - lower_shadow کوچکتر → Quality بیشتر
 - Body position در پایین → Quality بیشتر
 """
 
-SHOOTING_STAR_PATTERN_VERSION = "3.0.0"
+SHOOTING_STAR_PATTERN_VERSION = "4.0.0"
 
 import talib
 import pandas as pd
@@ -65,7 +60,6 @@ class ShootingStarPattern(BasePattern):
     - Small body at bottom of candle
     - Long upper shadow (TA-Lib average: 62.8% of range)
     - Little to no lower shadow (TA-Lib average: 5.9% of range)
-    - Best when appears after uptrend (we add this check)
 
     Strength: 2/3 (Medium-Strong)
 
@@ -76,9 +70,10 @@ class ShootingStarPattern(BasePattern):
     - Lower shadow: ~0-33% of range (mean: 5.9%)
     - Detection rate on BTC 1-hour: 75/10543 = 0.71%
 
-    Configurable Parameters:
-    - require_uptrend: آیا uptrend اجباری است؟ (default: True)
-    - min_uptrend_score: حداقل امتیاز uptrend (default: 50.0 = 0-100 scale)
+    Architecture Note:
+    - This detector ONLY identifies Shooting Star patterns
+    - Trend analysis is handled separately by Trend Analyzer
+    - Final decision (LONG/SHORT) is made by orchestrator combining both
 
     Note: min_upper_shadow_pct, max_lower_shadow_pct, max_body_pct, max_body_position
     are kept for backward compatibility but NOT used in detect() (TA-Lib handles this).
@@ -91,9 +86,7 @@ class ShootingStarPattern(BasePattern):
         min_upper_shadow_pct: float = None,
         max_lower_shadow_pct: float = None,
         max_body_pct: float = None,
-        max_body_position: float = None,
-        require_uptrend: bool = None,
-        min_uptrend_score: float = None
+        max_body_position: float = None
     ):
         """
         Initialize Shooting Star detector.
@@ -104,8 +97,6 @@ class ShootingStarPattern(BasePattern):
             max_lower_shadow_pct: حداکثر درصد lower shadow از range (default: 0.2 = 20%)
             max_body_pct: حداکثر درصد body از range (default: 0.3 = 30%)
             max_body_position: حداکثر موقعیت body (0.4 = bottom 40%)
-            require_uptrend: آیا uptrend برای detection اجباری است؟ (default: True)
-            min_uptrend_score: حداقل امتیاز uptrend برای detection (default: 50.0)
         """
         super().__init__(config)
 
@@ -134,24 +125,7 @@ class ShootingStarPattern(BasePattern):
             else config.get('shooting_star_max_body_position', 0.4) if config else 0.4
         )
 
-        # پارامترهای uptrend (جدید در v1.4.0)
-        self.require_uptrend = (
-            require_uptrend
-            if require_uptrend is not None
-            else config.get('shooting_star_require_uptrend', True) if config else True
-        )
-
-        self.min_uptrend_score = (
-            min_uptrend_score
-            if min_uptrend_score is not None
-            else config.get('shooting_star_min_uptrend_score', 50.0) if config else 50.0
-        )
-
         self.version = SHOOTING_STAR_PATTERN_VERSION
-
-        # Cache for context_score to avoid duplicate calculations
-        self._cached_context_score = None
-        self._cached_df_length = None
 
     def _get_pattern_name(self) -> str:
         return "Shooting Star"
@@ -185,19 +159,18 @@ class ShootingStarPattern(BasePattern):
         TA-Lib Requirements (based on research in talib-test/):
         1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
         2. Detects BULLISH candles only (close > open)
-        3. Does NOT check for uptrend context
+        3. Does NOT check for uptrend context (we also don't - handled separately)
 
-        Our Additional Checks:
-        - Multi-candle lookback (NEW in v3.0.0)
-        - Uptrend detection (if require_uptrend=True)
-        - TA-Lib found 75/10543 = 0.71% patterns in BTC 1-hour data
+        Architecture:
+        - This method ONLY detects Shooting Star patterns
+        - Trend analysis is done separately by Trend Analyzer
+        - Orchestrator combines both for final decision
 
         شرایط Shooting Star:
         - کندل BULLISH (close > open)
         - Upper shadow بلند (TA-Lib: میانگین 62.8%)
         - Body کوچک (TA-Lib: میانگین 31.3%)
         - Lower shadow کوچک (TA-Lib: میانگین 5.9%)
-        - (اختیاری) Uptrend detection: context score >= min_uptrend_score
         """
         if not self._validate_dataframe(df):
             return False
@@ -233,19 +206,8 @@ class ShootingStarPattern(BasePattern):
                 # etc.
                 idx = -(i + 1)
 
-                # pattern values: -100 (bearish signal), 0 (no pattern)
-                # Note: TA-Lib only detects bullish candles (close > open)
                 if pattern[idx] != 0:
-                    # Pattern found!
-                    # Additional check: uptrend context
-                    # TA-Lib does NOT check for uptrend (research shows 50/50 up/down)
-                    # We add this check because Shooting Star is a reversal pattern
-                    if self.require_uptrend:
-                        context_score = self._get_cached_context_score(df)
-                        if context_score < self.min_uptrend_score:
-                            continue  # Try next candle
-
-                    # Valid detection - store position
+                    # Pattern found! Store position and return
                     self._last_detection_candles_ago = i
                     return True
 
@@ -263,7 +225,7 @@ class ShootingStarPattern(BasePattern):
         - بر اساس قدرت upper shadow
         - کوچکی lower shadow
         - موقعیت body
-        - context (uptrend یا نه)
+        - اندازه body
 
         Shooting Star Types:
         - Perfect: همه شرایط ایده‌آل (upper_shadow >= 70%, lower_shadow <= 5%)
@@ -316,27 +278,20 @@ class ShootingStarPattern(BasePattern):
             0.15 * body_size_score
         )
 
-        # 6. Context Analysis (uptrend detection) - use cached value
-        context_score = self._get_cached_context_score(df)
-
-        # 7. Shooting Star Type Detection
+        # 6. Shooting Star Type Detection
         shooting_star_type = self._detect_shooting_star_type(
             upper_shadow_pct,
             lower_shadow_pct,
             body_position
         )
 
-        # 8. با context adjustment
-        final_quality = (overall_quality * 0.8) + (context_score * 0.2)
-
         return {
             'quality_score': round(overall_quality, 2),
-            'overall_quality': round(final_quality, 2),
+            'overall_quality': round(overall_quality, 2),
             'upper_shadow_score': round(upper_shadow_score, 2),
             'lower_shadow_score': round(lower_shadow_score, 2),
             'body_position_score': round(body_position_score, 2),
             'body_size_score': round(body_size_score, 2),
-            'context_score': round(context_score, 2),
             'body_size': float(body_size),
             'upper_shadow': float(upper_shadow),
             'lower_shadow': float(lower_shadow),
@@ -345,8 +300,7 @@ class ShootingStarPattern(BasePattern):
             'lower_shadow_pct': float(lower_shadow_pct),
             'body_position': float(body_position),
             'body_size_pct': float(body_size_pct),
-            'shooting_star_type': shooting_star_type,
-            'is_after_uptrend': context_score > 50
+            'shooting_star_type': shooting_star_type
         }
 
     def _detect_shooting_star_type(
@@ -372,77 +326,6 @@ class ShootingStarPattern(BasePattern):
         # Standard Shooting Star: شرایط استاندارد
         return "Standard"
 
-    def _get_cached_context_score(self, df: pd.DataFrame) -> float:
-        """
-        Get context score with caching to avoid duplicate calculations.
-
-        Cache is invalidated when df length changes (new candle added).
-
-        Args:
-            df: DataFrame with OHLC data
-
-        Returns:
-            Context score (0-100)
-        """
-        current_df_length = len(df)
-
-        # Check if cache is valid
-        if (self._cached_context_score is not None and
-            self._cached_df_length == current_df_length):
-            return self._cached_context_score
-
-        # Calculate and cache
-        self._cached_context_score = self._analyze_context(df)
-        self._cached_df_length = current_df_length
-
-        return self._cached_context_score
-
-    def _analyze_context(self, df: pd.DataFrame) -> float:
-        """
-        تحلیل context برای تشخیص uptrend.
-
-        Returns:
-            Score 0-100: هرچه بیشتر، احتمال uptrend بیشتر
-        """
-        if len(df) < 10:
-            return 50  # نمی‌دانیم
-
-        try:
-            # بررسی 10 کندل قبلی
-            recent = df.tail(10)
-
-            # 1. شیب قیمت (slope)
-            closes = recent['close'].values
-            indices = np.arange(len(closes))
-            slope = np.polyfit(indices, closes, 1)[0]
-
-            # اگر slope مثبت → uptrend
-            if slope > 0:
-                slope_score = min(100, abs(slope) / np.mean(closes) * 10000)
-            else:
-                slope_score = 0
-
-            # 2. تعداد کندل‌های صعودی
-            bullish_count = sum(recent['close'] > recent['open'])
-            bullish_score = (bullish_count / len(recent)) * 100
-
-            # 3. Higher highs
-            highs = recent['high'].values
-            higher_highs = sum(highs[i] > highs[i-1] for i in range(1, len(highs)))
-            higher_highs_score = (higher_highs / (len(highs) - 1)) * 100
-
-            # Combined score
-            context_score = (
-                0.40 * slope_score +
-                0.30 * bullish_score +
-                0.30 * higher_highs_score
-            )
-
-            return min(100, context_score)
-
-        except Exception:
-            return 50
-
     def _default_quality_metrics(self) -> Dict[str, Any]:
         """مقادیر پیش‌فرض برای زمانی که محاسبه ممکن نیست."""
         return {
@@ -452,7 +335,6 @@ class ShootingStarPattern(BasePattern):
             'lower_shadow_score': 0.0,
             'body_position_score': 0.0,
             'body_size_score': 0.0,
-            'context_score': 50.0,
             'body_size': 0.0,
             'upper_shadow': 0.0,
             'lower_shadow': 0.0,
@@ -461,8 +343,7 @@ class ShootingStarPattern(BasePattern):
             'lower_shadow_pct': 0.0,
             'body_position': 0.0,
             'body_size_pct': 0.0,
-            'shooting_star_type': 'Unknown',
-            'is_after_uptrend': False
+            'shooting_star_type': 'Unknown'
         }
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -525,9 +406,7 @@ class ShootingStarPattern(BasePattern):
                         'min_upper_shadow_pct': float(self.min_upper_shadow_pct),
                         'max_lower_shadow_pct': float(self.max_lower_shadow_pct),
                         'max_body_pct': float(self.max_body_pct),
-                        'max_body_position': float(self.max_body_position),
-                        'require_uptrend': bool(self.require_uptrend),
-                        'min_uptrend_score': float(self.min_uptrend_score)
+                        'max_body_position': float(self.max_body_position)
                     },
                     'detector_version': SHOOTING_STAR_PATTERN_VERSION,
                     'price_info': {

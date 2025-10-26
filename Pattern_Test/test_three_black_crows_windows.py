@@ -144,19 +144,293 @@ class ThreeBlackCrowsPatternTester:
                 pattern_candle_index = i - candles_ago
                 candle_info = df[pattern_candle_index]
 
-                detections.append({
+                detection_info = {
                     'index': pattern_candle_index,
+                    'detected_at_index': i,
+                    'candles_ago': candles_ago,
                     'timestamp': candle_info['timestamp'],
+                    'open': candle_info['open'],
+                    'high': candle_info['high'],
+                    'low': candle_info['low'],
+                    'close': candle_info['close'],
+                    'volume': candle_info['volume'],
+                    'timeframe': timeframe,
                     'confidence': pattern_info.get('confidence', 0) if pattern_info else 0
-                })
-                print(f"\nThree Black Crows #{len(detections)} at candle {pattern_candle_index}")
+                }
+
+                detections.append(detection_info)
+
+                print(f"\nThree Black Crows #{len(detections)} detected!")
+                print(f"   Pattern candle {pattern_candle_index}: {candle_info['timestamp']}")
+                print(f"   Detected at candle {i} ({candles_ago} candles ago)")
+                print(f"   OHLC: O={candle_info['open']:.2f} H={candle_info['high']:.2f} "
+                      f"L={candle_info['low']:.2f} C={candle_info['close']:.2f}")
+                if pattern_info:
+                    print(f"   Confidence: {pattern_info.get('confidence', 0):.2%}")
+
+                # Plot chart showing ONLY the window data sent to detector
+                self._plot_detection(df, i, pattern_candle_index, timeframe,
+                                    pattern_info, detections, start_idx, window_size)
 
         unique_patterns = set(det['index'] for det in detections)
         print(f"\nTotal detections: {len(detections)}, Unique: {len(unique_patterns)}")
 
         self.results.extend(detections)
         self._save_results(timeframe)
+
+        # Create summary chart with all unique patterns
+        if unique_patterns:
+            print(f"\nCreating summary chart with all {len(unique_patterns)} unique patterns...")
+            self._plot_all_patterns(df, list(unique_patterns), timeframe)
+
         return detections
+
+    def _plot_detection(self, df, detected_at_index, pattern_index, timeframe,
+                        pattern_info, all_detections, window_start_idx, window_size):
+        """Plot candlestick chart showing the detected pattern"""
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+
+            # Plot ONLY the window data (no future data!)
+            window_end_idx = detected_at_index + 1
+            df_plot = df.iloc[window_start_idx:window_end_idx]
+
+            fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
+
+            # Draw all candles
+            for idx in range(len(df_plot)):
+                row = df_plot[idx]
+                x_pos = idx
+                open_price = row['open']
+                high_price = row['high']
+                low_price = row['low']
+                close_price = row['close']
+
+                color = 'green' if close_price >= open_price else 'red'
+
+                # Wick
+                ax.plot([x_pos, x_pos], [low_price, high_price],
+                       color='black', linewidth=1)
+
+                # Body
+                body_height = abs(close_price - open_price)
+                body_bottom = min(open_price, close_price)
+                candle_width = 0.6
+
+                rect = Rectangle(
+                    (x_pos - candle_width/2, body_bottom),
+                    candle_width,
+                    body_height,
+                    facecolor=color,
+                    edgecolor='black',
+                    linewidth=0.5,
+                    alpha=0.8
+                )
+                ax.add_patch(rect)
+
+            # Find all patterns in this window
+            patterns_in_range = []
+            for det in all_detections:
+                det_idx = det['index']
+                if window_start_idx <= det_idx < window_end_idx:
+                    patterns_in_range.append(det)
+
+            # Mark all patterns in this window
+            if patterns_in_range:
+                for det in patterns_in_range:
+                    det_idx = det['index']
+                    position = det_idx - window_start_idx
+                    candle = df[det_idx]
+
+                    # Different marker for the main pattern vs others
+                    if det_idx == pattern_index:
+                        # Main pattern - larger, solid red (bearish)
+                        ax.scatter([position], [candle['high']],
+                                  color='red', s=250, marker='v', zorder=5,
+                                  edgecolors='darkred', linewidths=2,
+                                  label=f'Main Pattern (candle {det_idx})')
+                    else:
+                        # Other patterns in window - smaller, transparent
+                        ax.scatter([position], [candle['high']],
+                                  color='orange', s=150, marker='v', zorder=4,
+                                  alpha=0.6,
+                                  label=f'Other Pattern (candle {det_idx})')
+
+            # X-axis settings
+            x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // 10)))
+            x_labels = [df_plot[i]['timestamp'] for i in x_ticks]
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels, rotation=45, ha='right')
+
+            ax.set_xlabel('Time', fontsize=12)
+            ax.set_ylabel('Price (USDT)', fontsize=12)
+
+            pattern_candle = df[pattern_index]
+            ax.set_title(
+                f'Three Black Crows Pattern Detection - BTC/USDT {timeframe}\n'
+                f'Main Pattern: Candle #{pattern_index} at {pattern_candle["timestamp"]}\n'
+                f'Detected at: Candle #{detected_at_index} ({detected_at_index - pattern_index} candles later)\n'
+                f'Chart shows: ONLY window data sent to detector (#{window_start_idx} to #{detected_at_index})',
+                fontsize=11,
+                fontweight='bold'
+            )
+
+            ax.grid(True, alpha=0.3, linestyle='--')
+
+            # Legend - only show unique labels
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize=9)
+
+            # Info text
+            if pattern_info:
+                info_text = f"REALISTIC SIMULATION:\n"
+                info_text += f"Chart = Exact data sent to detector\n"
+                info_text += f"Window: {window_size} candles\n"
+                info_text += f"NO future data!\n\n"
+                info_text += f"PATTERN INFO:\n"
+                info_text += f"Confidence: {pattern_info.get('confidence', 0):.1%}\n"
+                info_text += f"Direction: {pattern_info.get('direction', 'N/A')}\n"
+                info_text += f"Location: {pattern_info.get('location', 'current')}\n"
+                info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}\n"
+                info_text += f"Recency: {pattern_info.get('recency_multiplier', 1.0):.2f}\n"
+                info_text += f"Patterns shown: {len(patterns_in_range)}"
+
+                ax.text(
+                    0.02, 0.98, info_text,
+                    transform=ax.transAxes,
+                    fontsize=10,
+                    verticalalignment='top',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7)
+                )
+
+            # Filename includes detection index
+            timestamp_str = pattern_candle["timestamp"].replace(' ', '_').replace(':', '').replace('-', '')
+            filename = f"three_black_crows_{timeframe}_detect{detected_at_index}_pattern{pattern_index}_{timestamp_str}.png"
+            filepath = self.charts_dir / filename
+
+            plt.tight_layout()
+            plt.savefig(filepath, dpi=100, bbox_inches='tight')
+            plt.close(fig)
+
+            print(f"   Chart saved: {filename}")
+
+        except Exception as e:
+            print(f"   Warning: Error plotting chart: {e}")
+
+    def _plot_all_patterns(self, df, pattern_indices, timeframe):
+        """Plot a large chart showing all detected patterns"""
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+
+            if not pattern_indices:
+                return
+
+            min_idx = min(pattern_indices)
+            max_idx = max(pattern_indices)
+
+            # Add some padding
+            start_idx = max(0, min_idx - 50)
+            end_idx = min(len(df), max_idx + 50)
+
+            df_plot = df.iloc[start_idx:end_idx]
+
+            # Create large figure
+            fig, ax = plt.subplots(figsize=(24, 12), dpi=100)
+
+            # Draw all candles
+            for idx in range(len(df_plot)):
+                row = df_plot[idx]
+                x_pos = idx
+                open_price = row['open']
+                high_price = row['high']
+                low_price = row['low']
+                close_price = row['close']
+
+                color = 'green' if close_price >= open_price else 'red'
+
+                # Wick
+                ax.plot([x_pos, x_pos], [low_price, high_price],
+                       color='black', linewidth=1)
+
+                # Body
+                body_height = abs(close_price - open_price)
+                body_bottom = min(open_price, close_price)
+                candle_width = 0.6
+
+                rect = Rectangle(
+                    (x_pos - candle_width/2, body_bottom),
+                    candle_width,
+                    body_height,
+                    facecolor=color,
+                    edgecolor='black',
+                    linewidth=0.5,
+                    alpha=0.8
+                )
+                ax.add_patch(rect)
+
+            # Mark all pattern candles
+            for pattern_idx in pattern_indices:
+                if start_idx <= pattern_idx < end_idx:
+                    pattern_position = pattern_idx - start_idx
+                    pattern_candle = df[pattern_idx]
+
+                    ax.scatter([pattern_position], [pattern_candle['high']],
+                              color='red', s=150, marker='v', zorder=5, alpha=0.7)
+
+            # X-axis settings
+            num_labels = min(20, len(df_plot))
+            x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // num_labels)))
+            x_labels = [df_plot[i]['timestamp'] for i in x_ticks]
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=8)
+
+            ax.set_xlabel('Time', fontsize=14)
+            ax.set_ylabel('Price (USDT)', fontsize=14)
+            ax.set_title(
+                f'All Three Black Crows Patterns - BTC/USDT {timeframe}\n'
+                f'Total {len(pattern_indices)} patterns from candle {min_idx} to {max_idx}',
+                fontsize=16,
+                fontweight='bold'
+            )
+
+            ax.grid(True, alpha=0.3, linestyle='--')
+
+            # Add legend
+            ax.scatter([], [], color='red', s=150, marker='v',
+                      label=f'Three Black Crows Pattern ({len(pattern_indices)} total)')
+            ax.legend(loc='upper left', fontsize=12)
+
+            # Add info text
+            info_text = f"Patterns: {len(pattern_indices)}\n"
+            info_text += f"Range: candles {min_idx}-{max_idx}\n"
+            info_text += f"Timeframe: {timeframe}"
+
+            ax.text(
+                0.02, 0.98, info_text,
+                transform=ax.transAxes,
+                fontsize=12,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7)
+            )
+
+            filename = f"three_black_crows_{timeframe}_ALL_PATTERNS_summary.png"
+            filepath = self.charts_dir / filename
+
+            plt.tight_layout()
+            plt.savefig(filepath, dpi=100, bbox_inches='tight')
+            plt.close(fig)
+
+            print(f"Summary chart saved: {filename}")
+
+        except Exception as e:
+            print(f"Warning: Error creating summary chart: {e}")
 
     def _save_results(self, timeframe):
         results_file = self.output_dir / f'three_black_crows_detections_{timeframe}.json'

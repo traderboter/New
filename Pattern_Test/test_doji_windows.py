@@ -169,7 +169,7 @@ class DojiPatternTester:
 
         return df
 
-    def test_candle_by_candle(self, df, timeframe='5min', lookback=50, start_from=100,
+    def test_candle_by_candle(self, df, timeframe='5min', start_from=100,
                               window_size=20):
         """
         Test candle-by-candle - simulates real bot behavior
@@ -178,17 +178,18 @@ class DojiPatternTester:
         - Bot only sees last N candles (window_size, default 20)
         - Bot moves forward one candle at a time
         - Detector searches in last 5 candles within that window
+        - Charts show ONLY the data sent to detector (no future data!)
 
         Args:
             df: SimpleDataFrame of data
             timeframe: Timeframe name
-            lookback: Number of previous candles to display in charts (50)
             start_from: Start test from which candle (100)
             window_size: Number of candles to send to detector (20, like real bot)
         """
         print(f"\nStarting candle-by-candle test from candle {start_from}...")
         print(f"Window size: {window_size} candles (simulating real bot)")
         print(f"Detector lookback: 5 candles (last 5 in window)")
+        print(f"Charts: Show ONLY window data (no future data!)")
 
         total_candles = len(df)
         detections = []
@@ -263,9 +264,9 @@ class DojiPatternTester:
                     print(f"   Location: {pattern_info.get('location', 'current')}")
                     print(f"   Recency multiplier: {pattern_info.get('recency_multiplier', 1.0):.2f}")
 
-                # Plot chart - pass all detections so far to show multiple patterns
-                # Also pass the window boundaries to show what data was sent to detector
-                self._plot_detection(df, i, pattern_candle_index, lookback, timeframe,
+                # Plot chart - show ONLY the window data sent to detector
+                # No future data! Just like real bot sees
+                self._plot_detection(df, i, pattern_candle_index, timeframe,
                                     pattern_info, detections, start_idx, window_size)
 
         print(f"\nFinal results:")
@@ -287,16 +288,19 @@ class DojiPatternTester:
 
         return detections
 
-    def _plot_detection(self, df, detected_at_index, pattern_index, lookback, timeframe,
+    def _plot_detection(self, df, detected_at_index, pattern_index, timeframe,
                         pattern_info, all_detections, window_start_idx, window_size):
         """
-        Plot candlestick chart showing the pattern and any other patterns in the range
+        Plot candlestick chart showing ONLY the data sent to detector
+
+        IMPORTANT: Charts show exactly what the bot sees - NO FUTURE DATA!
+        - Plot range: ONLY the window sent to detector (window_size candles)
+        - This simulates real bot that doesn't have access to future
 
         Args:
-            df: Full dataframe
+            df: Full dataframe (for reference only)
             detected_at_index: The candle index where detection happened
             pattern_index: The actual candle index where the pattern is
-            lookback: Number of candles to show before/after
             timeframe: Timeframe string
             pattern_info: Pattern information dict
             all_detections: List of all detections so far
@@ -309,43 +313,12 @@ class DojiPatternTester:
             import matplotlib.pyplot as plt
             from matplotlib.patches import Rectangle
 
-            # Plot range: pattern_index ± lookback for context
-            plot_start_idx = max(0, pattern_index - lookback)
-            plot_end_idx = min(len(df), pattern_index + lookback + 1)
-            df_plot = df.iloc[plot_start_idx:plot_end_idx]
+            # CRITICAL: Plot ONLY the window data (no future data!)
+            # This is exactly what was sent to the detector
+            window_end_idx = detected_at_index + 1
+            df_plot = df.iloc[window_start_idx:window_end_idx]
 
             fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
-
-            # Calculate window boundaries in plot coordinates
-            window_end_idx = detected_at_index + 1
-            window_start_in_plot = window_start_idx - plot_start_idx
-            window_end_in_plot = window_end_idx - plot_start_idx
-
-            # Get price range for window highlight
-            prices = []
-            for idx in range(len(df_plot)):
-                prices.extend([df_plot[idx]['high'], df_plot[idx]['low']])
-
-            if prices:
-                y_min, y_max = min(prices), max(prices)
-                y_padding = (y_max - y_min) * 0.05
-                y_min -= y_padding
-                y_max += y_padding
-
-                # Highlight the window that was sent to detector
-                if 0 <= window_start_in_plot < len(df_plot) and 0 <= window_end_in_plot <= len(df_plot):
-                    window_rect = Rectangle(
-                        (window_start_in_plot - 0.5, y_min),
-                        window_end_in_plot - window_start_in_plot,
-                        y_max - y_min,
-                        facecolor='yellow',
-                        alpha=0.1,
-                        edgecolor='orange',
-                        linewidth=2,
-                        linestyle='--',
-                        label=f'Data sent to detector ({window_size} candles)'
-                    )
-                    ax.add_patch(window_rect)
 
             # Draw all candles
             for idx in range(len(df_plot)):
@@ -378,18 +351,18 @@ class DojiPatternTester:
                 )
                 ax.add_patch(rect)
 
-            # Find all patterns in this range
+            # Find all patterns in this window
             patterns_in_range = []
             for det in all_detections:
                 det_idx = det['index']
-                if plot_start_idx <= det_idx < plot_end_idx:
+                if window_start_idx <= det_idx < window_end_idx:
                     patterns_in_range.append(det)
 
-            # Mark all patterns in this range
+            # Mark all patterns in this window
             if patterns_in_range:
                 for det in patterns_in_range:
                     det_idx = det['index']
-                    position = det_idx - plot_start_idx
+                    position = det_idx - window_start_idx
                     candle = df[det_idx]
 
                     # Different marker for the main pattern vs others
@@ -400,7 +373,7 @@ class DojiPatternTester:
                                   edgecolors='darkblue', linewidths=2,
                                   label=f'Main Pattern (candle {det_idx})')
                     else:
-                        # Other patterns in range - smaller, transparent
+                        # Other patterns in window - smaller, transparent
                         ax.scatter([position], [candle['high']],
                                   color='cyan', s=150, marker='v', zorder=4,
                                   alpha=0.6,
@@ -420,8 +393,8 @@ class DojiPatternTester:
                 f'Doji Pattern Detection - BTC/USDT {timeframe}\n'
                 f'Main Pattern: Candle #{pattern_index} at {pattern_candle["timestamp"]}\n'
                 f'Detected at: Candle #{detected_at_index} ({detected_at_index - pattern_index} candles later)\n'
-                f'Window sent to detector: {window_size} candles (#{window_start_idx} to #{detected_at_index})',
-                fontsize=12,
+                f'Chart shows: ONLY window data sent to detector (#{window_start_idx} to #{detected_at_index}) - NO FUTURE DATA',
+                fontsize=11,
                 fontweight='bold'
             )
 
@@ -434,16 +407,18 @@ class DojiPatternTester:
 
             # Info text
             if pattern_info:
-                info_text = f"SIMULATION INFO:\n"
-                info_text += f"Window size: {window_size} candles\n"
-                info_text += f"Detector lookback: 5 candles\n\n"
+                info_text = f"REALISTIC SIMULATION:\n"
+                info_text += f"Chart = Exact data sent to detector\n"
+                info_text += f"Window: {window_size} candles\n"
+                info_text += f"Lookback: 5 candles\n"
+                info_text += f"NO future data!\n\n"
                 info_text += f"PATTERN INFO:\n"
                 info_text += f"Confidence: {pattern_info.get('confidence', 0):.1%}\n"
                 info_text += f"Direction: {pattern_info.get('direction', 'N/A')}\n"
                 info_text += f"Location: {pattern_info.get('location', 'current')}\n"
                 info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}\n"
-                info_text += f"Recency mult: {pattern_info.get('recency_multiplier', 1.0):.2f}\n"
-                info_text += f"Patterns in view: {len(patterns_in_range)}"
+                info_text += f"Recency: {pattern_info.get('recency_multiplier', 1.0):.2f}\n"
+                info_text += f"Patterns shown: {len(patterns_in_range)}"
 
                 ax.text(
                     0.02, 0.98, info_text,
@@ -612,12 +587,12 @@ def main():
         # Load data
         df = tester.load_csv(timeframe)
 
-        # Test candle-by-candle
+        # Test candle-by-candle - simulates real bot with 20-candle window
         detections = tester.test_candle_by_candle(
             df=df,
             timeframe=timeframe,
-            lookback=50,
-            start_from=100
+            start_from=100,
+            window_size=20  # Same as real bot
         )
 
         # Count unique patterns

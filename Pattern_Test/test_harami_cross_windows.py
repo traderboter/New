@@ -147,23 +147,236 @@ class HaramiCrossPatternTester:
                 pattern_candle_index = i - candles_ago
                 candle_info = df[pattern_candle_index]
 
-                detections.append({
+                detection_info = {
                     'index': pattern_candle_index,
+                    'detected_at_index': i,
+                    'candles_ago': candles_ago,
                     'timestamp': candle_info['timestamp'],
-                    'direction': direction,
+                    'open': candle_info['open'],
+                    'high': candle_info['high'],
+                    'low': candle_info['low'],
+                    'close': candle_info['close'],
+                    'volume': candle_info['volume'],
+                    'timeframe': timeframe,
                     'confidence': pattern_info.get('confidence', 0) if pattern_info else 0
-                })
-                print(f"\nHarami Cross ({direction.upper()}) #{len(detections)} at candle {pattern_candle_index}")
+                }
+
+                detections.append(detection_info)
+
+                print(f"
+Harami Cross #{len(detections)} detected!")
+                print(f"   Pattern candle {pattern_candle_index}: {candle_info['timestamp']}")
+                print(f"   Detected at candle {i} ({candles_ago} candles ago)")
+                if pattern_info:
+                    print(f"   Confidence: {pattern_info.get('confidence', 0):.2%}")
+
+                self._plot_detection(df, i, pattern_candle_index, timeframe,
+                                    pattern_info, detections, start_idx, window_size)
 
         unique_patterns = set(det['index'] for det in detections)
         bullish_count = sum(1 for det in detections if det.get('direction') == 'bullish')
         bearish_count = sum(1 for det in detections if det.get('direction') == 'bearish')
         print(f"\nTotal detections: {len(detections)}, Unique: {len(unique_patterns)}")
-        print(f"Bullish: {bullish_count}, Bearish: {bearish_count}")
-
-        self.results.extend(detections)
+        print(f"Bullish: {bullish_count}, Bearish: {bearish_count}")        self.results.extend(detections)
         self._save_results(timeframe)
+
+        if unique_patterns:
+            print(f"
+Creating summary chart with all {len(unique_patterns)} unique patterns...")
+            self._plot_all_patterns(df, list(unique_patterns), timeframe)
+
         return detections
+    def _plot_detection(self, df, detected_at_index, pattern_index, timeframe,
+                        pattern_info, all_detections, window_start_idx, window_size):
+        """Plot candlestick chart showing the detected pattern"""
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+
+            window_end_idx = detected_at_index + 1
+            df_plot = df.iloc[window_start_idx:window_end_idx]
+
+            fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
+
+            for idx in range(len(df_plot)):
+                row = df_plot[idx]
+                x_pos = idx
+                open_price = row['open']
+                high_price = row['high']
+                low_price = row['low']
+                close_price = row['close']
+
+                color = 'green' if close_price >= open_price else 'red'
+                ax.plot([x_pos, x_pos], [low_price, high_price], color='black', linewidth=1)
+
+                body_height = abs(close_price - open_price)
+                body_bottom = min(open_price, close_price)
+                candle_width = 0.6
+
+                rect = Rectangle((x_pos - candle_width/2, body_bottom), candle_width, body_height,
+                                facecolor=color, edgecolor='black', linewidth=0.5, alpha=0.8)
+                ax.add_patch(rect)
+
+            patterns_in_range = [det for det in all_detections if window_start_idx <= det['index'] < window_end_idx]
+
+            if patterns_in_range:
+                for det in patterns_in_range:
+                    det_idx = det['index']
+                    position = det_idx - window_start_idx
+                    candle = df[det_idx]
+
+                    if det_idx == pattern_index:
+                        ax.scatter([position], [candle['high']], color='blue', s=250, marker='v', zorder=5,
+                                  edgecolors='darkblue', linewidths=2, label=f'Main Pattern (candle {det_idx})')
+                    else:
+                        ax.scatter([position], [candle['high']], color='cyan' if 'blue' == 'blue' else 'orange',
+                                  s=150, marker='v', zorder=4, alpha=0.6, label=f'Other Pattern (candle {det_idx})')
+
+            x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // 10)))
+            x_labels = [df_plot[i]['timestamp'] for i in x_ticks]
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels, rotation=45, ha='right')
+
+            ax.set_xlabel('Time', fontsize=12)
+            ax.set_ylabel('Price (USDT)', fontsize=12)
+
+            pattern_candle = df[pattern_index]
+            ax.set_title(
+                f'Harami Cross Pattern Detection - BTC/USDT {timeframe}
+'
+                f'Main Pattern: Candle #{pattern_index} at {pattern_candle["timestamp"]}
+'
+                f'Detected at: Candle #{detected_at_index} ({detected_at_index - pattern_index} candles later)
+'
+                f'Chart shows: ONLY window data sent to detector (#{window_start_idx} to #{detected_at_index})',
+                fontsize=11, fontweight='bold'
+            )
+
+            ax.grid(True, alpha=0.3, linestyle='--')
+
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize=9)
+
+            if pattern_info:
+                info_text = f"Window: {window_size} candles
+"
+                info_text += f"Confidence: {pattern_info.get('confidence', 0):.1%}
+"
+                info_text += f"Direction: {pattern_info.get('direction', 'N/A')}
+"
+                info_text += f"Location: {pattern_info.get('location', 'current')}
+"
+                info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}
+"
+                info_text += f"Patterns shown: {len(patterns_in_range)}"
+
+                ax.text(0.02, 0.98, info_text, transform=ax.transAxes, fontsize=10,
+                       verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+
+            timestamp_str = pattern_candle["timestamp"].replace(' ', '_').replace(':', '').replace('-', '')
+            filename = f"harami_cross_{timeframe}_detect{detected_at_index}_pattern{pattern_index}_{timestamp_str}.png"
+            filepath = self.charts_dir / filename
+
+            plt.tight_layout()
+            plt.savefig(filepath, dpi=100, bbox_inches='tight')
+            plt.close(fig)
+
+            print(f"   Chart saved: {filename}")
+
+        except Exception as e:
+            print(f"   Warning: Error plotting chart: {e}")
+
+    def _plot_all_patterns(self, df, pattern_indices, timeframe):
+        """Plot a large chart showing all detected patterns"""
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+
+            if not pattern_indices:
+                return
+
+            min_idx = min(pattern_indices)
+            max_idx = max(pattern_indices)
+            start_idx = max(0, min_idx - 50)
+            end_idx = min(len(df), max_idx + 50)
+
+            df_plot = df.iloc[start_idx:end_idx]
+
+            fig, ax = plt.subplots(figsize=(24, 12), dpi=100)
+
+            for idx in range(len(df_plot)):
+                row = df_plot[idx]
+                x_pos = idx
+                open_price = row['open']
+                high_price = row['high']
+                low_price = row['low']
+                close_price = row['close']
+
+                color = 'green' if close_price >= open_price else 'red'
+                ax.plot([x_pos, x_pos], [low_price, high_price], color='black', linewidth=1)
+
+                body_height = abs(close_price - open_price)
+                body_bottom = min(open_price, close_price)
+                candle_width = 0.6
+
+                rect = Rectangle((x_pos - candle_width/2, body_bottom), candle_width, body_height,
+                                facecolor=color, edgecolor='black', linewidth=0.5, alpha=0.8)
+                ax.add_patch(rect)
+
+            for pattern_idx in pattern_indices:
+                if start_idx <= pattern_idx < end_idx:
+                    pattern_position = pattern_idx - start_idx
+                    pattern_candle = df[pattern_idx]
+                    ax.scatter([pattern_position], [pattern_candle['high']],
+                              color='blue', s=150, marker='v', zorder=5, alpha=0.7)
+
+            num_labels = min(20, len(df_plot))
+            x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // num_labels)))
+            x_labels = [df_plot[i]['timestamp'] for i in x_ticks]
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=8)
+
+            ax.set_xlabel('Time', fontsize=14)
+            ax.set_ylabel('Price (USDT)', fontsize=14)
+            ax.set_title(
+                f'All Harami Cross Patterns - BTC/USDT {timeframe}
+'
+                f'Total {len(pattern_indices)} patterns from candle {min_idx} to {max_idx}',
+                fontsize=16, fontweight='bold'
+            )
+
+            ax.grid(True, alpha=0.3, linestyle='--')
+
+            ax.scatter([], [], color='blue', s=150, marker='v',
+                      label=f'Harami Cross Pattern ({len(pattern_indices)} total)')
+            ax.legend(loc='upper left', fontsize=12)
+
+            info_text = f"Patterns: {len(pattern_indices)}
+"
+            info_text += f"Range: candles {min_idx}-{max_idx}
+"
+            info_text += f"Timeframe: {timeframe}"
+
+            ax.text(0.02, 0.98, info_text, transform=ax.transAxes, fontsize=12,
+                   verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7))
+
+            filename = f"harami_cross_{timeframe}_ALL_PATTERNS_summary.png"
+            filepath = self.charts_dir / filename
+
+            plt.tight_layout()
+            plt.savefig(filepath, dpi=100, bbox_inches='tight')
+            plt.close(fig)
+
+            print(f"Summary chart saved: {filename}")
+
+        except Exception as e:
+            print(f"Warning: Error creating summary chart: {e}")
+
 
     def _save_results(self, timeframe):
         results_file = self.output_dir / f'harami_cross_detections_{timeframe}.json'

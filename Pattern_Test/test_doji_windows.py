@@ -44,12 +44,28 @@ except ImportError as e:
     sys.exit(1)
 
 
+class ILocIndexer:
+    """کلاس کمکی برای iloc که مثل pandas کار می‌کند"""
+
+    def __init__(self, dataframe):
+        self.dataframe = dataframe
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.dataframe.data[index]
+        elif isinstance(index, slice):
+            return SimpleDataFrame(self.dataframe.data[index], self.dataframe.columns)
+        else:
+            raise TypeError(f"نوع {type(index)} پشتیبانی نمی‌شود")
+
+
 class SimpleDataFrame:
     """یک DataFrame ساده برای جایگزینی pandas"""
 
     def __init__(self, data, columns):
         self.data = data
         self.columns = columns
+        self._iloc = ILocIndexer(self)
 
     def __len__(self):
         return len(self.data)
@@ -65,13 +81,10 @@ class SimpleDataFrame:
         else:
             raise TypeError(f"نوع {type(key)} پشتیبانی نمی‌شود")
 
-    def iloc(self, index):
-        if isinstance(index, int):
-            return self.data[index]
-        elif isinstance(index, slice):
-            return SimpleDataFrame(self.data[index], self.columns)
-        else:
-            raise TypeError(f"نوع {type(index)} پشتیبانی نمی‌شود")
+    @property
+    def iloc(self):
+        """برگرداندن ILocIndexer برای دسترسی مثل pandas"""
+        return self._iloc
 
     def copy(self):
         return SimpleDataFrame([row.copy() for row in self.data], self.columns.copy())
@@ -254,7 +267,7 @@ class DojiPatternTester:
 
             start_idx = max(0, detection_index - lookback)
             end_idx = detection_index + 1
-            df_plot = df.iloc(slice(start_idx, end_idx))
+            df_plot = df.iloc[start_idx:end_idx]
 
             fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
 

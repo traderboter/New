@@ -22,6 +22,9 @@ from pathlib import Path
 
 PATTERN_TO_TEST = "HAMMER"  # یا: ENGULFING, SHOOTINGSTAR, DOJI, ...
 
+# تایم فریم مورد نظر - گزینه‌ها: "5m", "15m", "1h", "4h"
+TIMEFRAME = "1h"
+
 PATTERN_INFO = {
     # ✅ الگوهای تست شده قبلی
     "ENGULFING": {
@@ -140,9 +143,27 @@ PATTERN_INFO = {
 # بارگذاری داده
 # =============================================================================
 
-def load_btc_data():
-    """Load BTC 1-hour data"""
-    csv_path = Path(__file__).parent.parent / 'historical' / 'BTC-USDT' / '1hour.csv'
+def load_btc_data(timeframe="1h"):
+    """
+    Load BTC data based on timeframe
+
+    Args:
+        timeframe: "5m", "15m", "1h", or "4h"
+    """
+    # نگاشت تایم فریم به نام فایل
+    timeframe_files = {
+        "5m": "5min.csv",
+        "15m": "15min.csv",
+        "1h": "1hour.csv",
+        "4h": "4hour.csv"
+    }
+
+    if timeframe not in timeframe_files:
+        print(f"❌ ERROR: Invalid timeframe '{timeframe}'")
+        print(f"   Valid options: {list(timeframe_files.keys())}")
+        return None
+
+    csv_path = Path(__file__).parent.parent / 'historical' / 'BTC-USDT' / timeframe_files[timeframe]
 
     if not csv_path.exists():
         print(f"❌ ERROR: {csv_path} not found!")
@@ -157,7 +178,7 @@ def load_btc_data():
         'volume': np.float64
     })
 
-    print(f"✅ Loaded {len(df)} BTC candles")
+    print(f"✅ Loaded {len(df)} BTC candles ({timeframe} timeframe)")
     return df
 
 # =============================================================================
@@ -396,9 +417,10 @@ def main():
 
     info = PATTERN_INFO[PATTERN_TO_TEST]
     print(f"\n📌 الگوی انتخابی: {info['name']}")
+    print(f"📌 تایم فریم: {TIMEFRAME}")
 
     # بارگذاری داده
-    df = load_btc_data()
+    df = load_btc_data(TIMEFRAME)
     if df is None:
         return
 
@@ -418,12 +440,18 @@ def main():
     print("="*60)
 
     # راهنما
-    print("\n💡 برای تست الگوی دیگر:")
+    print("\n💡 برای تست الگوی دیگر یا تایم فریم دیگر:")
     print("   1. در خط 23 فایل، PATTERN_TO_TEST را تغییر دهید")
     print("   2. الگوهای موجود:")
     for key, val in PATTERN_INFO.items():
         print(f"      - {key}: {val['name']}")
-    print("\n   3. دوباره اسکریپت را اجرا کنید:")
+    print("\n   3. در خط 26 فایل، TIMEFRAME را تغییر دهید")
+    print("   4. تایم فریم‌های موجود:")
+    print("      - 5m  (5 دقیقه)")
+    print("      - 15m (15 دقیقه)")
+    print("      - 1h  (1 ساعت)")
+    print("      - 4h  (4 ساعت)")
+    print("\n   5. دوباره اسکریپت را اجرا کنید:")
     print("      python3 test_pattern_with_real_data.py")
 
 if __name__ == '__main__':

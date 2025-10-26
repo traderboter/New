@@ -338,7 +338,11 @@ class Trade:
             'partial_tp_percent': self.partial_tp_percent,
             'partial_tp_size': self.partial_tp_size,
             'trailing_stop_params': self.trailing_stop_params,
-            'signal_id': self.signal_id
+            'signal_id': self.signal_id,
+            # 🆕 v3.1.0: Pattern tracking fields
+            'signal_patterns_details': self.signal_patterns_details,
+            'signal_pattern_contributions': self.signal_pattern_contributions,
+            'signal_score_breakdown': self.signal_score_breakdown
         }
 
     @classmethod
@@ -414,7 +418,11 @@ class Trade:
             partial_tp_percent=data.get('partial_tp_percent'),
             partial_tp_size=data.get('partial_tp_size'),
             trailing_stop_params=data.get('trailing_stop_params'),
-            signal_id=data.get('signal_id')
+            signal_id=data.get('signal_id'),
+            # 🆕 v3.1.0: Pattern tracking fields
+            signal_patterns_details=data.get('signal_patterns_details', []),
+            signal_pattern_contributions=data.get('signal_pattern_contributions', {}),
+            signal_score_breakdown=data.get('signal_score_breakdown', {})
         )
 
         # تنظیم remaining_quantity بعد از مقداردهی اولیه اگر None باشد

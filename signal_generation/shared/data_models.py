@@ -250,10 +250,10 @@ class SignalInfo:
 class TradeResult:
     """
     Trade result class for adaptive learning system.
-    
+
     This class stores the outcome of a trade for learning purposes.
     The system uses this data to improve future signals.
-    
+
     Attributes:
         signal_id: Related signal ID
         symbol: Traded symbol
@@ -268,12 +268,21 @@ class TradeResult:
         profit_pct: Profit/loss as percentage
         profit_r: Profit/loss in R (risk units)
         market_regime: Market regime during trade
-        pattern_names: Patterns involved
+        pattern_names: Patterns involved (simple names list)
         timeframe: Primary timeframe
         signal_score: Initial signal score
         trade_duration: Trade duration
         signal_type: Signal type
-    
+
+        # 🆕 NEW in v3.1.0: Detailed pattern tracking
+        detected_patterns_details: Complete details of all patterns that triggered this trade
+                                   Including: name, timeframe, candles_ago, recency_multiplier,
+                                   base_strength, adjusted_strength, confidence, metadata
+        pattern_contributions: Exact contribution of each pattern to final score
+                              Format: {'Hammer': 15.2, 'MACD_bullish': 12.8, ...}
+        score_breakdown: Complete breakdown of how final score was calculated
+                        Including: base_scores, weighted_scores, bonuses, multipliers
+
     Example:
         >>> result = TradeResult(
         ...     signal_id='BTC_L_1734264000_1234',
@@ -287,10 +296,18 @@ class TradeResult:
         ...     exit_time=datetime.now(timezone.utc),
         ...     exit_reason='tp',
         ...     profit_pct=2.0,
-        ...     profit_r=2.0
+        ...     profit_r=2.0,
+        ...     detected_patterns_details=[{
+        ...         'name': 'Hammer',
+        ...         'timeframe': '1h',
+        ...         'candles_ago': 2,
+        ...         'recency_multiplier': 0.8,
+        ...         'adjusted_strength': 1.6
+        ...     }],
+        ...     pattern_contributions={'Hammer': 15.2, 'MACD': 12.8}
         ... )
     """
-    
+
     # Required fields
     signal_id: str
     symbol: str
@@ -304,14 +321,49 @@ class TradeResult:
     exit_reason: str  # 'tp', 'sl', 'manual', 'trailing'
     profit_pct: float
     profit_r: float
-    
-    # Optional fields
+
+    # Optional fields (existing)
     market_regime: Optional[str] = None
-    pattern_names: List[str] = field(default_factory=list)
+    pattern_names: List[str] = field(default_factory=list)  # Kept for backward compatibility
     timeframe: str = ""
     signal_score: float = 0.0
     trade_duration: Optional[timedelta] = None
     signal_type: str = ""
+
+    # 🆕 NEW: Detailed pattern analysis fields (v3.1.0)
+    detected_patterns_details: List[Dict[str, Any]] = field(default_factory=list)
+    """
+    Complete details of all detected patterns.
+    Each pattern contains:
+    - name: Pattern name (e.g., 'Hammer')
+    - type: Pattern type ('candlestick' or 'chart')
+    - direction: Pattern direction ('bullish' or 'bearish')
+    - timeframe: Timeframe where pattern was detected
+    - candles_ago: How many candles ago pattern was formed (recency)
+    - recency_multiplier: Score multiplier based on recency (1.0 to 0.5)
+    - base_strength: Base strength of pattern (1-3)
+    - adjusted_strength: Strength after recency adjustment
+    - confidence: Pattern confidence (0-1)
+    - metadata: Additional pattern-specific information
+    """
+
+    pattern_contributions: Dict[str, float] = field(default_factory=dict)
+    """
+    Exact contribution of each pattern to the final score.
+    Format: {'Hammer': 15.2, 'MACD_bullish': 12.8, 'RSI_oversold': 8.5}
+    This shows how much each pattern added to the total score.
+    """
+
+    score_breakdown: Dict[str, Any] = field(default_factory=dict)
+    """
+    Complete breakdown of score calculation.
+    Includes:
+    - base_scores: Individual scores from each analyzer
+    - weighted_scores: After applying weights
+    - aggregates: Bonuses and multipliers
+    - final: Final score, confidence, strength
+    - patterns: Pattern-specific details
+    """
 
     def __post_init__(self):
         """
@@ -325,48 +377,58 @@ class TradeResult:
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert to dictionary for serialization.
-        
+
         Returns:
-            dict: All trade result information
+            dict: All trade result information including detailed pattern analysis
         """
         result = asdict(self)
-        
+
         # Convert datetime to ISO string
         if self.entry_time:
             result['entry_time'] = self.entry_time.isoformat()
         if self.exit_time:
             result['exit_time'] = self.exit_time.isoformat()
-        
+
         # Convert timedelta to seconds
         if self.trade_duration:
             result['trade_duration_seconds'] = self.trade_duration.total_seconds()
-        
+
+        # Ensure new fields are included
+        result['detected_patterns_details'] = self.detected_patterns_details
+        result['pattern_contributions'] = self.pattern_contributions
+        result['score_breakdown'] = self.score_breakdown
+
         return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TradeResult':
         """
         Create from dictionary.
-        
+
         Args:
             data: Dictionary with trade result information
-            
+
         Returns:
             TradeResult instance
         """
         data_copy = data.copy()
-        
+
         # Convert ISO strings to datetime
         if 'entry_time' in data_copy and isinstance(data_copy['entry_time'], str):
             data_copy['entry_time'] = datetime.fromisoformat(data_copy['entry_time'])
         if 'exit_time' in data_copy and isinstance(data_copy['exit_time'], str):
             data_copy['exit_time'] = datetime.fromisoformat(data_copy['exit_time'])
-        
+
         # Convert seconds to timedelta
         if 'trade_duration_seconds' in data_copy:
             seconds = data_copy.pop('trade_duration_seconds')
             data_copy['trade_duration'] = timedelta(seconds=seconds)
-        
+
+        # Ensure new fields have defaults if not present (backward compatibility)
+        data_copy.setdefault('detected_patterns_details', [])
+        data_copy.setdefault('pattern_contributions', {})
+        data_copy.setdefault('score_breakdown', {})
+
         return cls(**data_copy)
 
 

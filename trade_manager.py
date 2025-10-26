@@ -739,6 +739,32 @@ class TradeManager:
                 if hasattr(signal.score, 'volume_score'):
                     notes += f" | حجم: {signal.score.volume_score:.2f}"
 
+            # 🆕 v3.1.0: استخراج جزئیات الگوها و امتیازدهی از SignalInfo
+            signal_patterns_details = []
+            signal_pattern_contributions = {}
+            signal_score_breakdown = {}
+
+            if hasattr(signal, 'score'):
+                # استخراج جزئیات الگوهای تشخیص داده شده
+                if hasattr(signal.score, 'detected_patterns'):
+                    signal_patterns_details = signal.score.detected_patterns.copy() if signal.score.detected_patterns else []
+
+                # استخراج سهم هر الگو در امتیاز نهایی
+                if hasattr(signal.score, 'pattern_contributions'):
+                    signal_pattern_contributions = signal.score.pattern_contributions.copy() if signal.score.pattern_contributions else {}
+
+                # استخراج breakdown کامل امتیاز
+                if hasattr(signal.score, 'breakdown'):
+                    signal_score_breakdown = signal.score.breakdown.copy() if signal.score.breakdown else {}
+                elif hasattr(signal.score, 'build_breakdown'):
+                    # اگر breakdown هنوز ساخته نشده، آن را بسازیم
+                    signal_score_breakdown = signal.score.build_breakdown()
+
+            logger.debug(
+                f"[TRADE_MGR] 📊 اطلاعات الگوها استخراج شد: {len(signal_patterns_details)} الگو، "
+                f"{len(signal_pattern_contributions)} contribution"
+            )
+
             # ایجاد شی Trade با تمام فیلدهای لازم
             trade = Trade(
                 trade_id=trade_id,
@@ -760,7 +786,11 @@ class TradeManager:
                 signal_quality=getattr(signal.score, 'final_score', None) if hasattr(signal, 'score') else None,
                 market_state=market_state,  # وضعیت بازار
                 tags=tags,  # تگ‌های متنوع و معنی‌دار
-                notes=notes  # یادداشت‌های مفید با جزئیات سیگنال
+                notes=notes,  # یادداشت‌های مفید با جزئیات سیگنال
+                # 🆕 v3.1.0: اضافه کردن جزئیات الگوها و امتیازدهی
+                signal_patterns_details=signal_patterns_details,
+                signal_pattern_contributions=signal_pattern_contributions,
+                signal_score_breakdown=signal_score_breakdown
             )
 
             # لاگ کردن اطلاعات معامله جدید
@@ -3215,23 +3245,48 @@ class TradeManager:
 
                 # ارسال نتیجه معامله به سیستم ML اگر کالبک ثبت شده باشد
                 if self.trade_result_callback:
+                    # محاسبه profit_r (profit in R units)
+                    risk = abs(trade.entry_price - trade.initial_stop_loss)
+                    profit_r = (trade.profit_loss / trade.risk_amount) if trade.risk_amount > 0 else 0.0
+
+                    # 🆕 v3.1.0: استخراج pattern_names از detected_patterns_details
+                    pattern_names = []
+                    if hasattr(trade, 'signal_patterns_details') and trade.signal_patterns_details:
+                        pattern_names = [p.get('name', 'Unknown') for p in trade.signal_patterns_details]
+
+                    # ساخت TradeResult با فرمت جدید (v3.1.0)
+                    from datetime import timezone
                     trade_result = TradeResult(
-                        trade_id=trade.trade_id,
+                        signal_id=trade.signal_id or trade.trade_id,
                         symbol=trade.symbol,
                         direction=trade.direction,
                         entry_price=trade.entry_price,
                         exit_price=exit_price,
-                        profit_loss=trade.profit_loss,
-                        profit_loss_percent=trade.profit_loss_percent,
-                        duration_hours=trade.get_age(),
+                        stop_loss=trade.initial_stop_loss,
+                        take_profit=trade.take_profit,
+                        entry_time=trade.timestamp if trade.timestamp else datetime.now(timezone.utc),
+                        exit_time=trade.exit_time if trade.exit_time else datetime.now(timezone.utc),
                         exit_reason=exit_reason,
-                        strategy_name=trade.strategy_name,
-                        timeframe=trade.timeframe,
-                        signal_quality=trade.signal_quality,
-                        stop_moved_count=trade.stop_moved_count,
-                        tags=trade.tags,
-                        market_state=trade.market_state
+                        profit_pct=trade.profit_loss_percent,
+                        profit_r=profit_r,
+                        market_regime=trade.market_state,
+                        pattern_names=pattern_names,  # backward compatibility
+                        timeframe=trade.timeframe or '5m',
+                        signal_score=trade.signal_quality or 0.0,
+                        trade_duration=None,  # محاسبه خودکار در __post_init__
+                        signal_type=trade.strategy_name or 'unknown',
+                        # 🆕 v3.1.0: اضافه کردن جزئیات الگوها و امتیازدهی
+                        detected_patterns_details=getattr(trade, 'signal_patterns_details', []),
+                        pattern_contributions=getattr(trade, 'signal_pattern_contributions', {}),
+                        score_breakdown=getattr(trade, 'signal_score_breakdown', {})
                     )
+
+                    # لاگ کردن اطلاعات الگوها در TradeResult
+                    if trade_result.detected_patterns_details:
+                        logger.info(
+                            f"[TRADE_MGR] 📊 TradeResult برای {trade.trade_id} با {len(trade_result.detected_patterns_details)} الگو ایجاد شد"
+                        )
+
                     # ارسال به صورت آسنکرون
                     asyncio.create_task(self.trade_result_callback(trade_result))
 

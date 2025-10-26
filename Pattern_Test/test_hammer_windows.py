@@ -107,7 +107,9 @@ class HammerPatternTester:
         self._clear_old_charts()
 
         # Create pattern detector
-        self.hammer_detector = HammerPattern()
+        # NOTE: Set require_downtrend=False for testing to see all Hammers
+        # In production, you may want require_downtrend=True for better signals
+        self.hammer_detector = HammerPattern(require_downtrend=False)
 
         # Store results
         self.results = []
@@ -116,6 +118,7 @@ class HammerPatternTester:
         print(f"   Data directory: {self.data_dir}")
         print(f"   Output directory: {self.output_dir}")
         print(f"   Charts directory: {self.charts_dir}")
+        print(f"   Detector config: require_downtrend={self.hammer_detector.require_downtrend}")
 
     def _clear_old_charts(self):
         """Clear all previous Hammer charts"""

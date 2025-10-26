@@ -35,14 +35,13 @@ with open(data_file, 'r', encoding='utf-8') as f:
 df = pd.DataFrame(data)
 print(f"Loaded {len(df)} candles")
 
-# Test 1: With downtrend requirement (default)
+# Test 1: Default Hammer detector
 print("\n" + "="*60)
-print("Test 1: Default Hammer detector (require_downtrend=True)")
+print("Test 1: Default Hammer detector (v4.0.0 - no trend checking)")
 print("="*60)
 detector1 = HammerPattern()
-print(f"Config: require_downtrend={detector1.require_downtrend}")
-print(f"Config: min_downtrend_score={detector1.min_downtrend_score}")
 print(f"Config: lookback_window={detector1.lookback_window}")
+print(f"Note: Trend checking removed - handled separately now")
 
 # Test with different window sizes
 for window_size in [20, 50, 100, 200]:
@@ -50,37 +49,24 @@ for window_size in [20, 50, 100, 200]:
     result = detector1.detect(df_slice)
     print(f"Window size {window_size:3d}: detected = {result}")
 
-# Test 2: Without downtrend requirement
-print("\n" + "="*60)
-print("Test 2: Hammer detector WITHOUT downtrend requirement")
-print("="*60)
-detector2 = HammerPattern(require_downtrend=False)
-print(f"Config: require_downtrend={detector2.require_downtrend}")
-
-# Test with different window sizes
-for window_size in [20, 50, 100, 200]:
-    df_slice = df.tail(window_size)
-    result = detector2.detect(df_slice)
-    print(f"Window size {window_size:3d}: detected = {result}")
-
     if result:
         # Get pattern info
-        info = detector2.get_pattern_info(df_slice, '5min')
+        info = detector1.get_pattern_info(df_slice, '5min')
         print(f"   -> Pattern found!")
         print(f"   -> Candles ago: {info.get('candles_ago', 0)}")
         print(f"   -> Confidence: {info.get('confidence', 0):.2%}")
         break
 
-# Test 3: Scan through entire dataset
+# Test 2: Scan through entire dataset
 print("\n" + "="*60)
-print("Test 3: Scan first 1000 candles (no downtrend req)")
+print("Test 2: Scan first 1000 candles")
 print("="*60)
-detector3 = HammerPattern(require_downtrend=False)
+detector2 = HammerPattern()
 detections = 0
 
 for i in range(100, len(df)):
     df_slice = df.iloc[max(0, i-100):i+1]  # Last 100 candles
-    if detector3.detect(df_slice):
+    if detector2.detect(df_slice):
         detections += 1
         if detections <= 5:  # Show first 5
             candle = df.iloc[i]

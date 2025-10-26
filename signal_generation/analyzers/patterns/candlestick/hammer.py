@@ -4,6 +4,14 @@ Hammer Pattern Detector
 Detects Hammer candlestick pattern using TA-Lib CDLHAMMER.
 Hammer is a bullish reversal pattern.
 
+Version: 4.0.0 (2025-10-26) - Simplified Architecture
+- 🔥 REMOVED: Trend checking (now handled by separate Trend Analyzer)
+- ✅ KEPT: TA-Lib CDLHAMMER detection
+- ✅ KEPT: Multi-candle lookback (checks last 5 candles)
+- ✅ KEPT: Recency-based scoring
+- ✅ KEPT: Quality scoring system
+- 📐 Architecture: Pattern detection separated from trend analysis
+
 Version: 3.0.0 (2025-10-25) - Recency Scoring Implementation
 - ✨ NEW: Multi-candle lookback detection (checks last N candles)
 - ✨ NEW: Recency-based scoring (recent patterns score higher)
@@ -16,10 +24,9 @@ Version: 2.0.0 (2025-10-25) - MAJOR CHANGE
 - 🔬 بر اساس تحقیقات در talib-test/:
   * TA-Lib نیاز به حداقل 12 کندل دارد (11 قبلی + 1 فعلی)
   * TA-Lib هم کندل‌های BEARISH و هم BULLISH را تشخیص می‌دهد
-  * TA-Lib ترند را چک نمی‌کند (ما این را اضافه کردیم)
+  * TA-Lib ترند را چک نمی‌کند
 - 📊 Detection rate در BTC 1-hour data: 277/10543 = 2.63%
 - ⭐ 3.7× رایج‌تر از Shooting Star!
-- ✅ نگه‌داری downtrend check (TA-Lib ندارد)
 - ✅ نگه‌داری quality scoring system
 - ⚠️ حذف manual physics detection (جایگزین با TA-Lib)
 
@@ -28,19 +35,13 @@ Why TA-Lib?
 - حل: کل DataFrame (یا حداقل 12 کندل) → 277 detection ✅
 - TA-Lib استاندارد صنعت و قابل اعتمادتر است
 
-Version: 1.2.0 (2025-10-24)
-- جایگزینی TA-Lib با detector دستی
-- threshold های قابل تنظیم
-- Quality scoring system (0-100)
-- Hammer type detection و context analysis
-
 Quality Score:
 - هرچه lower_shadow بلندتر → Quality بیشتر
 - upper_shadow کوچکتر → Quality بیشتر
 - Body position در بالا → Quality بیشتر
 """
 
-HAMMER_PATTERN_VERSION = "3.0.0"
+HAMMER_PATTERN_VERSION = "4.0.0"
 
 import talib
 import pandas as pd
@@ -60,7 +61,6 @@ class HammerPattern(BasePattern):
     - Small body at top of candle
     - Long lower shadow (TA-Lib average: 63.9% of range)
     - Little to no upper shadow (TA-Lib average: 8.0% of range)
-    - Best when appears after downtrend (we add this check)
 
     Strength: 2/3 (Medium-Strong)
 
@@ -71,9 +71,10 @@ class HammerPattern(BasePattern):
     - Upper shadow: ~0-57% of range (mean: 8.0%)
     - Detection rate on BTC 1-hour: 277/10543 = 2.63%
 
-    Configurable Parameters:
-    - require_downtrend: آیا downtrend اجباری است؟ (default: True)
-    - min_downtrend_score: حداقل امتیاز downtrend (default: 50.0 = 0-100 scale)
+    Architecture Note:
+    - This detector ONLY identifies Hammer patterns
+    - Trend analysis is handled separately by Trend Analyzer
+    - Final decision (LONG/SHORT) is made by orchestrator combining both
 
     Note: min_lower_shadow_ratio, max_upper_shadow_ratio, min_body_position
     are kept for backward compatibility but NOT used in detect() (TA-Lib handles this).
@@ -85,9 +86,7 @@ class HammerPattern(BasePattern):
         config: Dict[str, Any] = None,
         min_lower_shadow_ratio: float = None,
         max_upper_shadow_ratio: float = None,
-        min_body_position: float = None,
-        require_downtrend: bool = None,
-        min_downtrend_score: float = None
+        min_body_position: float = None
     ):
         """
         Initialize Hammer detector.
@@ -97,8 +96,6 @@ class HammerPattern(BasePattern):
             min_lower_shadow_ratio: حداقل نسبت lower shadow/body (default: 2.0) - NOT used in detect()
             max_upper_shadow_ratio: حداکثر نسبت upper shadow/body (default: 0.1) - NOT used in detect()
             min_body_position: حداقل موقعیت body (0.66 = top 1/3) - NOT used in detect()
-            require_downtrend: آیا downtrend برای detection اجباری است؟ (default: True)
-            min_downtrend_score: حداقل امتیاز downtrend برای detection (default: 50.0)
         """
         super().__init__(config)
 
@@ -121,24 +118,7 @@ class HammerPattern(BasePattern):
             else config.get('hammer_min_body_position', 0.66) if config else 0.66
         )
 
-        # پارامترهای downtrend (جدید در v2.0.0)
-        self.require_downtrend = (
-            require_downtrend
-            if require_downtrend is not None
-            else config.get('hammer_require_downtrend', True) if config else True
-        )
-
-        self.min_downtrend_score = (
-            min_downtrend_score
-            if min_downtrend_score is not None
-            else config.get('hammer_min_downtrend_score', 50.0) if config else 50.0
-        )
-
         self.version = HAMMER_PATTERN_VERSION
-
-        # Cache for context_score to avoid duplicate calculations
-        self._cached_context_score = None
-        self._cached_df_length = None
 
     def _get_pattern_name(self) -> str:
         return "Hammer"
@@ -172,18 +152,17 @@ class HammerPattern(BasePattern):
         TA-Lib Requirements (based on research in talib-test/):
         1. Minimum 12 candles (11 previous + 1 current) - CRITICAL!
         2. Detects both BEARISH and BULLISH candles
-        3. Does NOT check for downtrend context
+        3. Does NOT check for downtrend context (we also don't - handled separately)
 
-        Our Additional Checks:
-        - Multi-candle lookback (NEW in v3.0.0)
-        - Downtrend detection (if require_downtrend=True)
-        - TA-Lib found 277/10543 = 2.63% patterns in BTC 1-hour data
+        Architecture:
+        - This method ONLY detects Hammer patterns
+        - Trend analysis is done separately by Trend Analyzer
+        - Orchestrator combines both for final decision
 
         شرایط Hammer:
         - Lower shadow بلند (TA-Lib: میانگین 63.9%)
         - Body کوچک (TA-Lib: میانگین 28.2%)
         - Upper shadow کوچک (TA-Lib: میانگین 8.0%)
-        - (اختیاری) Downtrend detection: context score >= min_downtrend_score
         """
         if not self._validate_dataframe(df):
             return False
@@ -220,16 +199,7 @@ class HammerPattern(BasePattern):
                 idx = -(i + 1)
 
                 if pattern[idx] != 0:
-                    # Pattern found!
-                    # Additional check: downtrend context
-                    # TA-Lib does NOT check for downtrend (research shows 58% in uptrend!)
-                    # We add this check because Hammer is a bullish reversal pattern
-                    if self.require_downtrend:
-                        context_score = self._get_cached_context_score(df)
-                        if context_score < self.min_downtrend_score:
-                            continue  # Try next candle
-
-                    # Valid detection - store position
+                    # Pattern found! Store position and return
                     self._last_detection_candles_ago = i
                     return True
 
@@ -247,7 +217,7 @@ class HammerPattern(BasePattern):
         - بر اساس قدرت lower shadow
         - کوچکی upper shadow
         - موقعیت body
-        - context (downtrend یا نه)
+        - اندازه body
 
         Hammer Types:
         - Perfect: همه شرایط ایده‌آل (lower_shadow >= 3x body, no upper shadow)
@@ -299,27 +269,20 @@ class HammerPattern(BasePattern):
             0.15 * body_size_score
         )
 
-        # 6. Context Analysis (downtrend detection) - use cached value
-        context_score = self._get_cached_context_score(df)
-
-        # 7. Hammer Type Detection
+        # 6. Hammer Type Detection
         hammer_type = self._detect_hammer_type(
             lower_shadow_ratio,
             upper_shadow_ratio,
             body_position
         )
 
-        # 8. با context adjustment
-        final_quality = (overall_quality * 0.8) + (context_score * 0.2)
-
         return {
             'quality_score': round(overall_quality, 2),
-            'overall_quality': round(final_quality, 2),
+            'overall_quality': round(overall_quality, 2),
             'lower_shadow_score': round(lower_shadow_score, 2),
             'upper_shadow_score': round(upper_shadow_score, 2),
             'body_position_score': round(body_position_score, 2),
             'body_size_score': round(body_size_score, 2),
-            'context_score': round(context_score, 2),
             'body_size': float(body_size),
             'lower_shadow': float(lower_shadow),
             'upper_shadow': float(upper_shadow),
@@ -328,8 +291,7 @@ class HammerPattern(BasePattern):
             'upper_shadow_ratio': float(upper_shadow_ratio),
             'body_position': float(body_position),
             'body_size_ratio': float(body_size_ratio),
-            'hammer_type': hammer_type,
-            'is_after_downtrend': context_score > 50
+            'hammer_type': hammer_type
         }
 
     def _detect_hammer_type(
@@ -355,77 +317,6 @@ class HammerPattern(BasePattern):
         # Standard Hammer: شرایط استاندارد
         return "Standard"
 
-    def _get_cached_context_score(self, df: pd.DataFrame) -> float:
-        """
-        Get context score with caching to avoid duplicate calculations.
-
-        Cache is invalidated when df length changes (new candle added).
-
-        Args:
-            df: DataFrame with OHLC data
-
-        Returns:
-            Context score (0-100)
-        """
-        current_df_length = len(df)
-
-        # Check if cache is valid
-        if (self._cached_context_score is not None and
-            self._cached_df_length == current_df_length):
-            return self._cached_context_score
-
-        # Calculate and cache
-        self._cached_context_score = self._analyze_context(df)
-        self._cached_df_length = current_df_length
-
-        return self._cached_context_score
-
-    def _analyze_context(self, df: pd.DataFrame) -> float:
-        """
-        تحلیل context برای تشخیص downtrend.
-
-        Returns:
-            Score 0-100: هرچه بیشتر، احتمال downtrend بیشتر
-        """
-        if len(df) < 10:
-            return 50  # نمی‌دانیم
-
-        try:
-            # بررسی 10 کندل قبلی
-            recent = df.tail(10)
-
-            # 1. شیب قیمت (slope)
-            closes = recent['close'].values
-            indices = np.arange(len(closes))
-            slope = np.polyfit(indices, closes, 1)[0]
-
-            # اگر slope منفی → downtrend
-            if slope < 0:
-                slope_score = min(100, abs(slope) / np.mean(closes) * 10000)
-            else:
-                slope_score = 0
-
-            # 2. تعداد کندل‌های نزولی
-            bearish_count = sum(recent['close'] < recent['open'])
-            bearish_score = (bearish_count / len(recent)) * 100
-
-            # 3. Lower lows
-            lows = recent['low'].values
-            lower_lows = sum(lows[i] < lows[i-1] for i in range(1, len(lows)))
-            lower_lows_score = (lower_lows / (len(lows) - 1)) * 100
-
-            # Combined score
-            context_score = (
-                0.40 * slope_score +
-                0.30 * bearish_score +
-                0.30 * lower_lows_score
-            )
-
-            return min(100, context_score)
-
-        except Exception:
-            return 50
-
     def _default_quality_metrics(self) -> Dict[str, Any]:
         """مقادیر پیش‌فرض برای زمانی که محاسبه ممکن نیست."""
         return {
@@ -435,7 +326,6 @@ class HammerPattern(BasePattern):
             'upper_shadow_score': 0.0,
             'body_position_score': 0.0,
             'body_size_score': 0.0,
-            'context_score': 50.0,
             'body_size': 0.0,
             'lower_shadow': 0.0,
             'upper_shadow': 0.0,
@@ -444,8 +334,7 @@ class HammerPattern(BasePattern):
             'upper_shadow_ratio': 0.0,
             'body_position': 0.0,
             'body_size_ratio': 0.0,
-            'hammer_type': 'Unknown',
-            'is_after_downtrend': False
+            'hammer_type': 'Unknown'
         }
 
     def _get_detection_details(self, df: pd.DataFrame) -> Dict[str, Any]:

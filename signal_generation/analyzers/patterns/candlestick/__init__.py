@@ -22,6 +22,20 @@ from signal_generation.analyzers.patterns.candlestick.doji import DojiPattern
 from signal_generation.analyzers.patterns.candlestick.harami import HaramiPattern
 from signal_generation.analyzers.patterns.candlestick.harami_cross import HaramiCrossPattern
 
+# Phase 1 - New powerful patterns
+from signal_generation.analyzers.patterns.candlestick.marubozu import MarubozuPattern
+from signal_generation.analyzers.patterns.candlestick.dragonfly_doji import DragonflyDojiPattern
+from signal_generation.analyzers.patterns.candlestick.gravestone_doji import GravestoneDojiPattern
+from signal_generation.analyzers.patterns.candlestick.spinning_top import SpinningTopPattern
+from signal_generation.analyzers.patterns.candlestick.long_legged_doji import LongLeggedDojiPattern
+
+# Phase 2 - Continuation and confirmation patterns
+from signal_generation.analyzers.patterns.candlestick.three_inside import ThreeInsidePattern
+from signal_generation.analyzers.patterns.candlestick.three_outside import ThreeOutsidePattern
+from signal_generation.analyzers.patterns.candlestick.belt_hold import BeltHoldPattern
+from signal_generation.analyzers.patterns.candlestick.three_methods import ThreeMethodsPattern
+from signal_generation.analyzers.patterns.candlestick.mat_hold import MatHoldPattern
+
 __all__ = [
     # Bullish patterns
     'HammerPattern',
@@ -44,4 +58,18 @@ __all__ = [
     'DojiPattern',
     'HaramiPattern',
     'HaramiCrossPattern',
+
+    # Phase 1 - New powerful patterns
+    'MarubozuPattern',
+    'DragonflyDojiPattern',
+    'GravestoneDojiPattern',
+    'SpinningTopPattern',
+    'LongLeggedDojiPattern',
+
+    # Phase 2 - Continuation and confirmation patterns
+    'ThreeInsidePattern',
+    'ThreeOutsidePattern',
+    'BeltHoldPattern',
+    'ThreeMethodsPattern',
+    'MatHoldPattern',
 ]

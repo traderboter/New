@@ -87,7 +87,11 @@ class Trade:
             partial_tp_size: Optional[float] = None,
             # --- Trailing Stop Parameters ---
             trailing_stop_params: Optional[Dict[str, Any]] = None,
-            signal_id: Optional[str] = None  # شناسه سیگنال مرتبط با معامله
+            signal_id: Optional[str] = None,  # شناسه سیگنال مرتبط با معامله
+            # 🆕 NEW in v3.1.0: Detailed pattern tracking from signal
+            signal_patterns_details: Optional[List[Dict[str, Any]]] = None,  # جزئیات الگوهای تشخیص داده شده
+            signal_pattern_contributions: Optional[Dict[str, float]] = None,  # سهم هر الگو در امتیاز
+            signal_score_breakdown: Optional[Dict[str, Any]] = None  # breakdown کامل امتیاز سیگنال
     ):
         """
         مقداردهی اولیه معامله
@@ -143,6 +147,11 @@ class Trade:
         self.max_duration_days = max_duration_days
         self.partial_tp_percent = partial_tp_percent
         self.partial_tp_size = partial_tp_size
+
+        # 🆕 NEW in v3.1.0: ذخیره جزئیات الگوهای سیگنال
+        self.signal_patterns_details = signal_patterns_details or []
+        self.signal_pattern_contributions = signal_pattern_contributions or {}
+        self.signal_score_breakdown = signal_score_breakdown or {}
 
         # --- اضافه کردن ساختار مدیریت حد ضرر متحرک ---
         self.trailing_stop_params = trailing_stop_params or TrailingStopParams(

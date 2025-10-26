@@ -183,7 +183,6 @@ class DojiPatternTester:
 
         total_candles = len(df)
         detections = []
-        plotted_patterns = set()  # Track which pattern candles we've already plotted
 
         # Import pandas for pattern detector
         try:
@@ -237,7 +236,8 @@ class DojiPatternTester:
                     'low': candle_info['low'],
                     'close': candle_info['close'],
                     'volume': candle_info['volume'],
-                    'timeframe': timeframe
+                    'timeframe': timeframe,
+                    'confidence': pattern_info.get('confidence', 0) if pattern_info else 0
                 }
 
                 detections.append(detection_info)
@@ -252,45 +252,57 @@ class DojiPatternTester:
                     print(f"   Location: {pattern_info.get('location', 'current')}")
                     print(f"   Recency multiplier: {pattern_info.get('recency_multiplier', 1.0):.2f}")
 
-                # Plot chart only once per unique pattern candle
-                if pattern_candle_index not in plotted_patterns:
-                    self._plot_detection(df, pattern_candle_index, lookback, timeframe, pattern_info)
-                    plotted_patterns.add(pattern_candle_index)
-                else:
-                    print(f"   Chart already plotted for this pattern candle")
+                # Plot chart - pass all detections so far to show multiple patterns
+                self._plot_detection(df, i, pattern_candle_index, lookback, timeframe,
+                                    pattern_info, detections)
 
         print(f"\nFinal results:")
         print(f"   Candles checked: {total_candles - start_from}")
         print(f"   Total detections: {len(detections)}")
-        print(f"   Unique patterns: {len(plotted_patterns)}")
+
+        # Count unique patterns
+        unique_patterns = set(det['index'] for det in detections)
+        print(f"   Unique patterns: {len(unique_patterns)}")
 
         # Save results
         self.results.extend(detections)
         self._save_results(timeframe)
 
-        # Create summary chart with all patterns
-        if plotted_patterns:
-            print(f"\nCreating summary chart with all {len(plotted_patterns)} patterns...")
-            self._plot_all_patterns(df, list(plotted_patterns), timeframe)
+        # Create summary chart with all unique patterns
+        if unique_patterns:
+            print(f"\nCreating summary chart with all {len(unique_patterns)} unique patterns...")
+            self._plot_all_patterns(df, list(unique_patterns), timeframe)
 
         return detections
 
-    def _plot_detection(self, df, pattern_index, lookback, timeframe, pattern_info):
-        """Plot candlestick chart"""
+    def _plot_detection(self, df, detected_at_index, pattern_index, lookback, timeframe,
+                        pattern_info, all_detections):
+        """
+        Plot candlestick chart showing the pattern and any other patterns in the range
+
+        Args:
+            df: Full dataframe
+            detected_at_index: The candle index where detection happened
+            pattern_index: The actual candle index where the pattern is
+            lookback: Number of candles to show before/after
+            timeframe: Timeframe string
+            pattern_info: Pattern information dict
+            all_detections: List of all detections so far
+        """
         try:
             import matplotlib
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
             from matplotlib.patches import Rectangle
 
+            # Plot range: pattern_index ± lookback
             start_idx = max(0, pattern_index - lookback)
-            end_idx = pattern_index + lookback
-            end_idx = min(end_idx, len(df))
+            end_idx = min(len(df), pattern_index + lookback + 1)
             df_plot = df.iloc[start_idx:end_idx]
 
             fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
 
-            # Draw candles
+            # Draw all candles
             for idx in range(len(df_plot)):
                 row = df_plot[idx]
                 x_pos = idx
@@ -301,9 +313,11 @@ class DojiPatternTester:
 
                 color = 'green' if close_price >= open_price else 'red'
 
+                # Wick
                 ax.plot([x_pos, x_pos], [low_price, high_price],
                        color='black', linewidth=1)
 
+                # Body
                 body_height = abs(close_price - open_price)
                 body_bottom = min(open_price, close_price)
                 candle_width = 0.6
@@ -319,14 +333,33 @@ class DojiPatternTester:
                 )
                 ax.add_patch(rect)
 
-            # Mark the pattern candle
-            pattern_position = pattern_index - start_idx
-            pattern_candle = df[pattern_index]
+            # Find all patterns in this range
+            patterns_in_range = []
+            for det in all_detections:
+                det_idx = det['index']
+                if start_idx <= det_idx < end_idx:
+                    patterns_in_range.append(det)
 
-            # Use simple marker instead of emoji
-            ax.scatter([pattern_position], [pattern_candle['high']],
-                      color='blue', s=200, marker='v', zorder=5,
-                      label='Doji Pattern Detected')
+            # Mark all patterns in this range
+            if patterns_in_range:
+                for det in patterns_in_range:
+                    det_idx = det['index']
+                    position = det_idx - start_idx
+                    candle = df[det_idx]
+
+                    # Different marker for the main pattern vs others
+                    if det_idx == pattern_index:
+                        # Main pattern - larger, solid blue
+                        ax.scatter([position], [candle['high']],
+                                  color='blue', s=250, marker='v', zorder=5,
+                                  edgecolors='darkblue', linewidths=2,
+                                  label=f'Main Pattern (candle {det_idx})')
+                    else:
+                        # Other patterns in range - smaller, transparent
+                        ax.scatter([position], [candle['high']],
+                                  color='cyan', s=150, marker='v', zorder=4,
+                                  alpha=0.6,
+                                  label=f'Other Pattern (candle {det_idx})')
 
             # X-axis settings
             x_ticks = list(range(0, len(df_plot), max(1, len(df_plot) // 10)))
@@ -336,33 +369,43 @@ class DojiPatternTester:
 
             ax.set_xlabel('Time', fontsize=12)
             ax.set_ylabel('Price (USDT)', fontsize=12)
+
+            pattern_candle = df[pattern_index]
             ax.set_title(
                 f'Doji Pattern Detection - BTC/USDT {timeframe}\n'
-                f'Pattern at: {pattern_candle["timestamp"]} (Candle #{pattern_index})',
-                fontsize=14,
+                f'Main Pattern: Candle #{pattern_index} at {pattern_candle["timestamp"]}\n'
+                f'Detected at: Candle #{detected_at_index} ({detected_at_index - pattern_index} candles later)',
+                fontsize=13,
                 fontweight='bold'
             )
 
             ax.grid(True, alpha=0.3, linestyle='--')
-            ax.legend(loc='upper left', fontsize=10)
 
+            # Legend - only show unique labels
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize=9)
+
+            # Info text
             if pattern_info:
                 info_text = f"Confidence: {pattern_info.get('confidence', 0):.1%}\n"
                 info_text += f"Direction: {pattern_info.get('direction', 'N/A')}\n"
                 info_text += f"Location: {pattern_info.get('location', 'current')}\n"
                 info_text += f"Candles ago: {pattern_info.get('candles_ago', 0)}\n"
-                info_text += f"Recency mult: {pattern_info.get('recency_multiplier', 1.0):.2f}"
+                info_text += f"Recency mult: {pattern_info.get('recency_multiplier', 1.0):.2f}\n"
+                info_text += f"Patterns in view: {len(patterns_in_range)}"
 
                 ax.text(
                     0.02, 0.98, info_text,
                     transform=ax.transAxes,
                     fontsize=10,
                     verticalalignment='top',
-                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7)
                 )
 
-            timestamp_str = pattern_candle["timestamp"].replace(' ', '_').replace(':', '')
-            filename = f"doji_{timeframe}_candle_{pattern_index}_{timestamp_str}.png"
+            # Filename includes detection index to make each chart unique
+            timestamp_str = pattern_candle["timestamp"].replace(' ', '_').replace(':', '').replace('-', '')
+            filename = f"doji_{timeframe}_detect{detected_at_index}_pattern{pattern_index}_{timestamp_str}.png"
             filepath = self.charts_dir / filename
 
             plt.tight_layout()
@@ -373,6 +416,8 @@ class DojiPatternTester:
 
         except Exception as e:
             print(f"   Warning: Error plotting chart: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _plot_all_patterns(self, df, pattern_indices, timeframe):
         """Plot a large chart showing all detected patterns"""

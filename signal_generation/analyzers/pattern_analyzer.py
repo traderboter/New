@@ -31,6 +31,18 @@ from signal_generation.analyzers.patterns.candlestick import (
     DojiPattern,
     HaramiPattern,
     HaramiCrossPattern,
+    # Phase 1 - New powerful patterns
+    MarubozuPattern,
+    DragonflyDojiPattern,
+    GravestoneDojiPattern,
+    SpinningTopPattern,
+    LongLeggedDojiPattern,
+    # Phase 2 - Continuation and confirmation patterns
+    ThreeInsidePattern,
+    ThreeOutsidePattern,
+    BeltHoldPattern,
+    ThreeMethodsPattern,
+    MatHoldPattern,
 )
 
 from signal_generation.analyzers.patterns.chart import (
@@ -109,6 +121,18 @@ class PatternAnalyzer(BaseAnalyzer):
             DojiPattern,
             HaramiPattern,
             HaramiCrossPattern,
+            # Phase 1 - New powerful patterns
+            MarubozuPattern,
+            DragonflyDojiPattern,
+            GravestoneDojiPattern,
+            SpinningTopPattern,
+            LongLeggedDojiPattern,
+            # Phase 2 - Continuation and confirmation patterns
+            ThreeInsidePattern,
+            ThreeOutsidePattern,
+            BeltHoldPattern,
+            ThreeMethodsPattern,
+            MatHoldPattern,
         ]
 
         for pattern_class in candlestick_classes:

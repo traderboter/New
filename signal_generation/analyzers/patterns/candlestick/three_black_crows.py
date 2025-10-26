@@ -125,8 +125,19 @@ class ThreeBlackCrowsPattern(BasePattern):
             recency_multiplier = 0.0
 
         # Get the three candles where pattern was detected
-        candle_idx = -(candles_ago + 1)
-        candles = df.iloc[candle_idx - 2:candle_idx + 1].copy()
+        # Calculate absolute position from end
+        pattern_end_idx = len(df) - candles_ago
+        pattern_start_idx = pattern_end_idx - 3
+
+        # Ensure we have valid indices
+        if pattern_start_idx < 0 or pattern_end_idx > len(df):
+            return super()._get_detection_details(df)
+
+        candles = df.iloc[pattern_start_idx:pattern_end_idx].copy()
+
+        # Double check we have exactly 3 candles
+        if len(candles) != 3:
+            return super()._get_detection_details(df)
 
         # Calculate body sizes and full ranges
         bodies = [abs(candles.iloc[i]['close'] - candles.iloc[i]['open']) for i in range(3)]

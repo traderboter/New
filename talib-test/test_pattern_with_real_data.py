@@ -90,6 +90,50 @@ PATTERN_INFO = {
         "name": "Three Black Crows",
         "talib_func": talib.CDL3BLACKCROWS,
     },
+
+    # 🆕 Phase 1 - الگوهای قدرتمند جدید
+    "MARUBOZU": {
+        "name": "Marubozu",
+        "talib_func": talib.CDLMARUBOZU,
+    },
+    "DRAGONFLYDOJI": {
+        "name": "Dragonfly Doji",
+        "talib_func": talib.CDLDRAGONFLYDOJI,
+    },
+    "GRAVESTONEDOJI": {
+        "name": "Gravestone Doji",
+        "talib_func": talib.CDLGRAVESTONEDOJI,
+    },
+    "SPINNINGTOP": {
+        "name": "Spinning Top",
+        "talib_func": talib.CDLSPINNINGTOP,
+    },
+    "LONGLEGGEDDOJI": {
+        "name": "Long-Legged Doji",
+        "talib_func": talib.CDLLONGLEGGEDDOJI,
+    },
+
+    # 🆕 Phase 2 - الگوهای ادامه و تایید جدید
+    "THREEINSIDE": {
+        "name": "Three Inside Up/Down",
+        "talib_func": talib.CDL3INSIDE,
+    },
+    "THREEOUTSIDE": {
+        "name": "Three Outside Up/Down",
+        "talib_func": talib.CDL3OUTSIDE,
+    },
+    "BELTHOLD": {
+        "name": "Belt Hold",
+        "talib_func": talib.CDLBELTHOLD,
+    },
+    "THREEMETHODS": {
+        "name": "Rising/Falling Three Methods",
+        "talib_func": talib.CDLRISEFALL3METHODS,
+    },
+    "MATHOLD": {
+        "name": "Mat Hold",
+        "talib_func": talib.CDLMATHOLD,
+    },
 }
 
 # =============================================================================

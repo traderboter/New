@@ -55,6 +55,8 @@ class RSIIndicator(BaseIndicator):
            Avg = (Previous Avg * (N-1) + Current Value) / N
            This is equivalent to EMA with alpha = 1/N
 
+        Optimized version using numpy arrays for fast computation.
+
         Args:
             df: DataFrame with OHLCV data
 
@@ -67,36 +69,39 @@ class RSIIndicator(BaseIndicator):
         delta = result_df['close'].diff()
 
         # Separate gains and losses
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
+        gain = delta.where(delta > 0, 0).values
+        loss = (-delta.where(delta < 0, 0)).values
 
-        # Calculate average gain and loss using Wilder's smoothing
-        # Method: First value = SMA, then apply Wilder's formula
+        # Convert to numpy arrays for fast computation
+        n = len(gain)
 
-        # Calculate initial SMA
-        avg_gain = gain.rolling(window=self.period).mean()
-        avg_loss = loss.rolling(window=self.period).mean()
+        # Initialize arrays
+        avg_gain = np.empty(n)
+        avg_loss = np.empty(n)
+        avg_gain[:self.period] = np.nan
+        avg_loss[:self.period] = np.nan
+
+        # First average = SMA of first N periods
+        avg_gain[self.period] = np.mean(gain[1:self.period+1])
+        avg_loss[self.period] = np.mean(loss[1:self.period+1])
 
         # Apply Wilder's smoothing for subsequent values
         # Wilder's formula: Avg[i] = (Avg[i-1] * (N-1) + Value[i]) / N
-        # This is equivalent to: Avg[i] = Avg[i-1] + (Value[i] - Avg[i-1]) / N
-        # Which is EMA with alpha = 1/N
-
-        for i in range(self.period, len(result_df)):
-            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (self.period - 1) + gain.iloc[i]) / self.period
-            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (self.period - 1) + loss.iloc[i]) / self.period
+        # This is much faster with numpy arrays than pandas iloc
+        for i in range(self.period + 1, n):
+            avg_gain[i] = (avg_gain[i-1] * (self.period - 1) + gain[i]) / self.period
+            avg_loss[i] = (avg_loss[i-1] * (self.period - 1) + loss[i]) / self.period
 
         # Calculate RS (Relative Strength) with safe division
         rs = self._safe_divide(avg_gain, avg_loss, 0)
 
         # Calculate RSI
-        result_df['rsi'] = 100 - (100 / (1 + rs))
+        rsi = 100 - (100 / (1 + rs))
 
         # Ensure RSI is within valid range [0, 100]
         # Set invalid values to NaN
-        result_df['rsi'] = result_df['rsi'].where(
-            result_df['rsi'].between(0, 100, inclusive='both'),
-            np.nan
-        )
+        rsi = np.where((rsi >= 0) & (rsi <= 100), rsi, np.nan)
+
+        result_df['rsi'] = rsi
 
         return result_df

@@ -92,15 +92,16 @@ class RSIIndicator(BaseIndicator):
             avg_gain[i] = (avg_gain[i-1] * (self.period - 1) + gain[i]) / self.period
             avg_loss[i] = (avg_loss[i-1] * (self.period - 1) + loss[i]) / self.period
 
-        # Calculate RS (Relative Strength) with safe division
-        rs = self._safe_divide(avg_gain, avg_loss, 0)
+        # Calculate RSI using the alternative formula: RSI = 100 * avg_gain / (avg_gain + avg_loss)
+        # This is mathematically equivalent to: RSI = 100 - (100 / (1 + RS))
+        # But handles edge cases better (when avg_loss = 0)
+        total = avg_gain + avg_loss
 
-        # Calculate RSI
-        rsi = 100 - (100 / (1 + rs))
+        # Use safe division: when total = 0 (no movement), RSI = 50 (neutral)
+        rsi = 100 * self._safe_divide(avg_gain, total, 0.5)
 
         # Ensure RSI is within valid range [0, 100]
-        # Set invalid values to NaN
-        rsi = np.where((rsi >= 0) & (rsi <= 100), rsi, np.nan)
+        rsi = np.clip(rsi, 0, 100)
 
         result_df['rsi'] = rsi
 

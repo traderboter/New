@@ -4,13 +4,18 @@ Mat Hold Pattern Detector
 Detects Mat Hold candlestick pattern using TALib.
 Mat Hold is a bullish continuation pattern.
 
+Version: 1.1.0 (2025-10-27) - Add Penetration Parameter
+- Added configurable penetration parameter (default: 0.3)
+- Previous version was too strict with TALib's default 0.5
+- Lower penetration makes pattern detection more practical
+
 Version: 1.0.0 (2025-10-26) - Initial Implementation
 - 5-candle bullish continuation pattern
 - Shows brief pullback before uptrend continues
 - Confirms bullish trend strength
 """
 
-MAT_HOLD_PATTERN_VERSION = "1.0.0"
+MAT_HOLD_PATTERN_VERSION = "1.1.0"
 
 import talib
 import pandas as pd
@@ -36,7 +41,27 @@ class MatHoldPattern(BasePattern):
 
     Strength: 3/3 (Strong) - trend continuation
     Direction: Bullish only
+
+    Parameters:
+    - penetration: Percentage of penetration required (0.0-1.0)
+                   Lower values = more detections (less strict)
+                   Higher values = fewer detections (more strict)
+                   Default: 0.3 (30% penetration)
     """
+
+    def __init__(self, lookback_window: int = 15, recency_multipliers: list = None, penetration: float = 0.3):
+        """
+        Initialize Mat Hold pattern detector.
+
+        Args:
+            lookback_window: Number of recent candles to check
+            recency_multipliers: Multipliers for pattern recency scoring
+            penetration: Penetration percentage for TALib (0.0-1.0, default: 0.3)
+                        Lower = more lenient detection
+                        Higher = stricter detection
+        """
+        super().__init__(lookback_window, recency_multipliers)
+        self.penetration = max(0.0, min(1.0, penetration))  # Clamp between 0 and 1
 
     def _get_pattern_name(self) -> str:
         return "Mat Hold"
@@ -85,7 +110,8 @@ class MatHoldPattern(BasePattern):
                 df[open_col].values,
                 df[high_col].values,
                 df[low_col].values,
-                df[close_col].values
+                df[close_col].values,
+                penetration=self.penetration
             )
 
             # Check last N candles (lookback_window)

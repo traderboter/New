@@ -101,26 +101,19 @@ class TestStochasticIndicator:
 
     def test_stochastic_at_low(self):
         """Test Stochastic when price is at low."""
-        # Create data where close is always at low
+        # Create data where close is consistently at the lowest point of the range
+        # Use flat/declining price to ensure close = low_min
         df = pd.DataFrame({
-            'high': [110, 115, 120, 125, 130],
-            'low': [100, 105, 110, 115, 120],
-            'close': [100, 105, 110, 115, 120]  # Always at low
+            'high': [110] * 25,
+            'low': [100] * 25,
+            'close': [100] * 25  # Always at low and price is flat
         })
-
-        # Need more data
-        for i in range(20):
-            df = pd.concat([df, pd.DataFrame({
-                'high': [130 + i],
-                'low': [120 + i],
-                'close': [120 + i]
-            })], ignore_index=True)
 
         indicator = StochasticIndicator({'stoch_k': 5, 'stoch_d': 3, 'stoch_smooth': 1})
 
         result_df = indicator.calculate_safe(df)
 
-        # When close is at low, %K should be 0
+        # When close is at low_min, %K should be 0
         k_values = result_df['stoch_k'].iloc[-5:]
         assert np.allclose(k_values.dropna(), 0, rtol=0.01)
 
@@ -193,35 +186,39 @@ class TestStochasticEdgeCases:
 
     def test_overbought_condition(self):
         """Test overbought condition detection."""
-        # Create strong uptrend
+        # Create strong uptrend with close near high
+        # To get K>80, need: (close - low_min) > 0.8 * (high_max - low_min)
+        # Using close near high ensures this condition
         df = pd.DataFrame({
             'high': np.arange(110, 210),
             'low': np.arange(100, 200),
-            'close': np.arange(105, 205)
+            'close': np.arange(109, 209)  # Close near high (9 out of 10 range)
         })
 
         indicator = StochasticIndicator({'stoch_k': 14, 'stoch_d': 3, 'stoch_smooth': 3})
 
         result_df = indicator.calculate_safe(df)
 
-        # In strong uptrend, Stochastic should show overbought (>80)
+        # In strong uptrend with close near high, Stochastic should show overbought (>80)
         k_values = result_df['stoch_k'].iloc[-10:]
         assert k_values.mean() > 80
 
     def test_oversold_condition(self):
         """Test oversold condition detection."""
-        # Create strong downtrend
+        # Create strong downtrend with close near low
+        # To get K<20, need: (close - low_min) < 0.2 * (high_max - low_min)
+        # Using close near low ensures this condition
         df = pd.DataFrame({
             'high': np.arange(200, 100, -1),
             'low': np.arange(190, 90, -1),
-            'close': np.arange(195, 95, -1)
+            'close': np.arange(191, 91, -1)  # Close near low (1 out of 10 range)
         })
 
         indicator = StochasticIndicator({'stoch_k': 14, 'stoch_d': 3, 'stoch_smooth': 3})
 
         result_df = indicator.calculate_safe(df)
 
-        # In strong downtrend, Stochastic should show oversold (<20)
+        # In strong downtrend with close near low, Stochastic should show oversold (<20)
         k_values = result_df['stoch_k'].iloc[-10:]
         assert k_values.mean() < 20
 

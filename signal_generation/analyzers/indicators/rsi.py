@@ -45,7 +45,15 @@ class RSIIndicator(BaseIndicator):
 
     def calculate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate RSI using Wilder's smoothing method (EMA).
+        Calculate RSI using Wilder's smoothing method.
+
+        RSI calculation (matching TA-Lib):
+        1. Calculate price changes (delta)
+        2. Separate gains and losses
+        3. First average = SMA of first N gains/losses
+        4. Subsequent averages using Wilder's smoothing:
+           Avg = (Previous Avg * (N-1) + Current Value) / N
+           This is equivalent to EMA with alpha = 1/N
 
         Args:
             df: DataFrame with OHLCV data
@@ -62,10 +70,21 @@ class RSIIndicator(BaseIndicator):
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
 
-        # Calculate average gain and loss using EMA (Wilder's method)
-        # Wilder's smoothing is equivalent to EMA with alpha = 1/period
-        avg_gain = gain.ewm(span=self.period, adjust=False).mean()
-        avg_loss = loss.ewm(span=self.period, adjust=False).mean()
+        # Calculate average gain and loss using Wilder's smoothing
+        # Method: First value = SMA, then apply Wilder's formula
+
+        # Calculate initial SMA
+        avg_gain = gain.rolling(window=self.period).mean()
+        avg_loss = loss.rolling(window=self.period).mean()
+
+        # Apply Wilder's smoothing for subsequent values
+        # Wilder's formula: Avg[i] = (Avg[i-1] * (N-1) + Value[i]) / N
+        # This is equivalent to: Avg[i] = Avg[i-1] + (Value[i] - Avg[i-1]) / N
+        # Which is EMA with alpha = 1/N
+
+        for i in range(self.period, len(result_df)):
+            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (self.period - 1) + gain.iloc[i]) / self.period
+            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (self.period - 1) + loss.iloc[i]) / self.period
 
         # Calculate RS (Relative Strength) with safe division
         rs = self._safe_divide(avg_gain, avg_loss, 0)

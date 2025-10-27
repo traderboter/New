@@ -269,14 +269,35 @@ class BaseIndicator(ABC):
         Safe division with protection from division by zero.
 
         Args:
-            numerator: Numerator (can be scalar or array)
-            denominator: Denominator (can be scalar or array)
+            numerator: Numerator (can be scalar or array/Series)
+            denominator: Denominator (can be scalar or array/Series)
             default: Default value when denominator is zero (default: 0)
 
         Returns:
             Result of division or default value where denominator is zero
+            Returns same type as input (Series if input is Series, array if array)
         """
-        return np.where(denominator != 0, numerator / denominator, default)
+        # Handle pandas Series
+        is_series = isinstance(numerator, pd.Series) or isinstance(denominator, pd.Series)
+
+        # Convert to numpy arrays for computation
+        num_arr = np.asarray(numerator)
+        den_arr = np.asarray(denominator)
+
+        # Perform safe division
+        # Use np.divide with where parameter to avoid division by zero
+        result = np.divide(num_arr, den_arr,
+                          out=np.full_like(num_arr, default, dtype=float),
+                          where=den_arr != 0)
+
+        # Return same type as input
+        if is_series:
+            if isinstance(numerator, pd.Series):
+                return pd.Series(result, index=numerator.index)
+            elif isinstance(denominator, pd.Series):
+                return pd.Series(result, index=denominator.index)
+
+        return result
 
     def _get_dataframe_hash(self, df: pd.DataFrame) -> Optional[str]:
         """

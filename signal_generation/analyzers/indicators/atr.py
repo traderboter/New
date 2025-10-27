@@ -61,8 +61,9 @@ class ATRIndicator(BaseIndicator):
         # True Range is the maximum of the three
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
 
-        # ATR uses EMA (Wilder's smoothing method) instead of SMA
-        # This is the standard calculation for ATR
-        result_df['atr'] = true_range.ewm(span=self.period, adjust=False).mean()
+        # ATR uses Wilder's smoothing method (alpha = 1/period)
+        # This is different from standard EMA which uses alpha = 2/(period+1)
+        # Wilder's formula: ATR[i] = ((ATR[i-1] * (n-1)) + TR[i]) / n
+        result_df['atr'] = true_range.ewm(alpha=1/self.period, adjust=False).mean()
 
         return result_df

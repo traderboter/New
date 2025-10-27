@@ -4,6 +4,11 @@ Mat Hold Pattern Detector
 Detects Mat Hold candlestick pattern using TALib.
 Mat Hold is a bullish continuation pattern.
 
+Version: 1.1.1 (2025-10-27) - Fix BasePattern Compatibility
+- Fixed __init__ signature to match BasePattern interface
+- Now properly accepts config dictionary as first parameter
+- Backward compatible: penetration can be passed directly or via config
+
 Version: 1.1.0 (2025-10-27) - Add Penetration Parameter
 - Added configurable penetration parameter (default: 0.3)
 - Previous version was too strict with TALib's default 0.5
@@ -15,7 +20,7 @@ Version: 1.0.0 (2025-10-26) - Initial Implementation
 - Confirms bullish trend strength
 """
 
-MAT_HOLD_PATTERN_VERSION = "1.1.0"
+MAT_HOLD_PATTERN_VERSION = "1.1.1"
 
 import talib
 import pandas as pd
@@ -49,19 +54,29 @@ class MatHoldPattern(BasePattern):
                    Default: 0.3 (30% penetration)
     """
 
-    def __init__(self, lookback_window: int = 15, recency_multipliers: list = None, penetration: float = 0.3):
+    def __init__(self, config: Dict[str, Any] = None, penetration: float = None):
         """
         Initialize Mat Hold pattern detector.
 
         Args:
-            lookback_window: Number of recent candles to check
-            recency_multipliers: Multipliers for pattern recency scoring
+            config: Configuration dictionary (inherited from BasePattern)
             penetration: Penetration percentage for TALib (0.0-1.0, default: 0.3)
-                        Lower = more lenient detection
-                        Higher = stricter detection
+                        Lower = more lenient detection (more patterns found)
+                        Higher = stricter detection (fewer patterns found)
+                        Can also be set via config['mat_hold_penetration']
         """
-        super().__init__(lookback_window, recency_multipliers)
-        self.penetration = max(0.0, min(1.0, penetration))  # Clamp between 0 and 1
+        super().__init__(config)
+
+        # Determine penetration from multiple sources (explicit arg > config > default)
+        if penetration is not None:
+            self.penetration = penetration
+        elif config and 'mat_hold_penetration' in config:
+            self.penetration = config['mat_hold_penetration']
+        else:
+            self.penetration = 0.3  # Default value
+
+        # Clamp between 0 and 1
+        self.penetration = max(0.0, min(1.0, self.penetration))
 
     def _get_pattern_name(self) -> str:
         return "Mat Hold"

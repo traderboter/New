@@ -1,0 +1,15 @@
+# Test Requirements for Indicators Test Suite
+
+# Testing Framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.1  # For parallel test execution
+pytest-mock>=3.11.1
+
+# Data Analysis (already in main project, but listed for completeness)
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Optional: for better test output
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0

@@ -46,6 +46,11 @@ class EMAIndicator(BaseIndicator):
         """
         Calculate EMA for all configured periods.
 
+        EMA is calculated the same way as TA-Lib:
+        1. First EMA value = SMA of first N periods
+        2. Subsequent values: EMA = price * alpha + prev_EMA * (1-alpha)
+           where alpha = 2 / (period + 1)
+
         Args:
             df: DataFrame with OHLCV data
 
@@ -56,6 +61,27 @@ class EMAIndicator(BaseIndicator):
 
         for period in self.periods:
             col_name = f'ema_{period}'
-            result_df[col_name] = result_df['close'].ewm(span=period, adjust=False).mean()
+
+            # Calculate SMA for the first period values
+            sma_initial = result_df['close'].rolling(window=period).mean()
+
+            # Calculate EMA using pandas ewm
+            # adjust=False means we use recursive formula: EMA[i] = alpha * price[i] + (1-alpha) * EMA[i-1]
+            ema = result_df['close'].ewm(span=period, adjust=False).mean()
+
+            # Replace the initial values (before first complete window) with NaN
+            # and the first complete window value with SMA
+            ema_corrected = ema.copy()
+            ema_corrected.iloc[:period-1] = np.nan  # Set early values to NaN
+            ema_corrected.iloc[period-1] = sma_initial.iloc[period-1]  # First EMA = SMA
+
+            # Now recalculate EMA from the SMA starting point
+            # We need to manually apply the EMA formula after the SMA initialization
+            alpha = 2 / (period + 1)
+            for i in range(period, len(result_df)):
+                ema_corrected.iloc[i] = (result_df['close'].iloc[i] * alpha +
+                                        ema_corrected.iloc[i-1] * (1 - alpha))
+
+            result_df[col_name] = ema_corrected
 
         return result_df
